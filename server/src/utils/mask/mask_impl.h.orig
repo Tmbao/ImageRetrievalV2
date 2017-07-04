@@ -1,0 +1,33 @@
+#ifndef UTILS_MASK_IMPL_H
+#define UTILS_MASK_IMPL_H
+
+#include "mask_interface.h"
+
+#include <opencv2/opencv.hpp>
+using namespace cv;
+
+
+/**
+ * An implementation of MaskInterface.
+ *
+ * This implementation eliminates static background using background subtraction
+ * and removes skin using skin thresholding detection.
+ */
+class MaskImpl : public MaskInterface
+{
+private:
+  Ptr<BackgroundSubtractor> bgrSubtractor_;
+
+public:
+  /**
+   * Default constructor.
+   */
+  MaskImpl(): bgrSubtractor_(createBackgroundSubtractorMOG2()) {}
+
+  /**
+   * Returns a mask of the current frame based on previous ones.
+   */
+  Mat getMask(const Mat& src) override;
+};
+
+#endif // UTILS_MASK_IMPL_H

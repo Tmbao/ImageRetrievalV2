@@ -1,0 +1,108 @@
+//
+//  ir_instance.hpp
+//  server
+//
+//  Created by Bao Truong on 7/3/17.
+//
+//
+
+#ifndef ir_instance_hpp
+#define ir_instance_hpp
+
+#include <arrayfire.h>
+#include <boost/thread/mutex.hpp>
+#include <opencv2/opencv.hpp>
+#include <opencv2/flann/flann.hpp>
+#include <vector>
+
+#include "ir_result.hpp"
+
+/**
+ * A parameter type used for quantization step.
+ */
+struct QuantizationParams {
+  int nTrees;
+  size_t knn;
+  int nChecks;
+  float deltaSqr;
+  std::string codebookFile;
+  std::string codebookName;
+  std::string indexFile;
+  
+  QuantizationParams() {
+    nTrees = 8;
+    knn = 3;
+    nChecks = 800;
+    deltaSqr = 6250;
+    //TODO: Update these
+    codebookFile = "";
+    codebookName = "";
+    indexFile = "";
+  }
+};
+
+/**
+ * A parameter type used for bag-of-words constructing.
+ */
+struct DatabaseParams {
+  int nWords;
+  
+  DatabaseParams() {
+    nWords = 1000000;
+  }
+};
+
+/**
+ * A thread safe image retrieval system.
+ */
+class IrInstance {
+ private:
+
+  // Static variables
+  static IrInstance* instance_;
+  static boost::mutex initMutex_;
+
+  // Documents
+  std::vector<std::string> docNames;
+
+  // Quantization variables
+  cvflann::Index< cvflann::L2<float> >* quantIndex_;
+  QuantizationParams quantParams_;
+
+  // Bag-of-word variables
+  af::array database_;
+  af::array invDocFreq_;
+  DatabaseParams dbParams_;
+
+  IrInstance();
+
+  void createInstanceIfNecessary();
+  
+  void buildIndexIfNecessary(bool overwrite = false);
+
+  void quantize(
+    const af::array &descriptors,
+    std::vector<size_t> &termIndices,
+    std::vector<float> &termWeights);
+
+  void buildBow(
+    const std::vector<size_t> &indices,
+    const std::vector<float> &weights,
+    af::array &bow);
+
+  void computeScore(
+    const af::array& bow,
+    std::vector<float> &scores);
+
+ public:
+
+  /**
+   * Retrieve a list of simiar image in the database along with their score.
+   */
+  std::vector<IrResult> retrieve(const cv::Mat& image, int topK = -1);
+};
+
+IrInstance* IrInstance::instance_ = NULL;
+boost::mutex IrInstance::initMutex_;
+
+#endif /* ir_instance_hpp */

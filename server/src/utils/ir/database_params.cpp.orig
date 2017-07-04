@@ -1,0 +1,46 @@
+//
+//  database_params.cpp
+//  server
+//
+//  Created by Bao Truong on 7/3/17.
+//
+//
+
+#include "database_params.h"
+
+#include <boost/filesystem.hpp>
+#include <boost/range/iterator_range.hpp>
+
+
+std::vector<std::string> DatabaseParams::getImages() {
+  std::vector<std::string> images;
+  for (auto& entry :
+       boost::make_iterator_range(
+         boost::filesystem::directory_iterator(imageFolder),
+         {})) {
+    images.push_back(entry.path().filename().string());
+         
+  }
+  return images;
+}
+
+std::string joinPath(const std::string& dir, const std::string& file) {
+  return (boost::filesystem::path(dir) / boost::filesystem::path(file)).string();
+}
+
+std::string DatabaseParams::getFullPath(const std::string& imageName, CacheTag tag) {
+  switch (tag) {
+    case IMAGE:
+      return joinPath(imageFolder, imageName);
+    case KEYPOINT:
+      return joinPath(cacheFolder, imageName + ".keypoint");
+    case DESCRIPTOR:
+      return joinPath(cacheFolder, imageName + ".descriptor");
+    case WEIGHT:
+      return joinPath(cacheFolder, imageName + ".weight");
+    case INDEX:
+      return joinPath(cacheFolder, imageName + ".index");
+    default:
+      return "";
+  }
+}
