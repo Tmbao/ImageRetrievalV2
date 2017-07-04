@@ -98,3 +98,6 @@ xcuserdata/
 *.moved-aside
 *.xccheckout
 *.xcscmblueprint
+
+# === Astyle
+*.orig
