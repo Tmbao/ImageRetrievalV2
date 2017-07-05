@@ -34,8 +34,8 @@ class IrInstance {
  private:
 
   // Static variables
-  extern IrInstance* instance_;
-  extern boost::mutex initMutex_;
+  static IrInstance* instance_;
+  static boost::mutex initMutex_;
 
   GlobalParameters globalParams;
   
