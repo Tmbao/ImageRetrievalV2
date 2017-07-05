@@ -1,5 +1,6 @@
-#ifndef UTILS_MASK_INTERFACE_H
-#define UTILS_MASK_INTERFACE_H
+
+#ifndef mask_interface_h
+#define mask_interface_h
 
 #include <opencv2/opencv.hpp>
 
@@ -15,4 +16,4 @@ class MaskInterface {
   virtual cv::Mat getMask(const cv::Mat& src) = 0;
 };
 
-#endif // UTILS_MASK_INTERFACE_H
+#endif /* mask_interface_h */

@@ -96,6 +96,6 @@ struct AffineShape {
   cv::Mat mask, img, fx, fy;
 };
 
-};
+}
 
 #endif // __AFFINE_H__

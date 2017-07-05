@@ -170,4 +170,4 @@ void SIFTDescriptor::computeSiftDescriptor(Mat &patch) {
   sample();
 }
 
-};
+}

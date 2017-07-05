@@ -1,5 +1,6 @@
-#ifndef UTILS_MASK_IMPL_H
-#define UTILS_MASK_IMPL_H
+
+#ifndef mask_impl_h
+#define mask_impl_h
 
 #include "mask_interface.h"
 
@@ -28,4 +29,4 @@ class MaskImpl : public MaskInterface {
   cv::Mat getMask(const cv::Mat& src) override;
 };
 
-#endif // UTILS_MASK_IMPL_H
+#endif /* mask_impl_h */

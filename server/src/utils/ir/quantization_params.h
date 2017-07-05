@@ -12,6 +12,8 @@
 #include <string>
 
 
+namespace ir {
+
 /**
  * A parameter type used for quantization step.
  */
@@ -35,5 +37,7 @@ struct QuantizationParams {
     indexFile = "";
   }
 };
+  
+}
 
 #endif /* quantization_params_h */

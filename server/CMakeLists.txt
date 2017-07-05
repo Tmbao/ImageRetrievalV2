@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 project (server CXX)
 
 find_package(ArrayFire REQUIRED)
-find_package(Boost COMPONENTS asio filesystem thread serialization system REQUIRED)
+find_package(Boost COMPONENTS filesystem thread serialization system REQUIRED)
 find_package(Flann REQUIRED)
 find_package(Hdf5 REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -29,8 +29,10 @@ file(GLOB SERVER_SOURCES
   ${PROJECT_SOURCE_DIR}/utils/mask/*.h
   ${PROJECT_SOURCE_DIR}/utils/ir/*.cpp
   ${PROJECT_SOURCE_DIR}/utils/ir/*.h
+  ${PROJECT_SOURCE_DIR}/utils/*.h
   ${PROJECT_SOURCE_DIR}/*.cpp
-  ${PROJECT_SOURCE_DIR}/*.h)
+  ${PROJECT_SOURCE_DIR}/*.h
+)
 
 list(APPEND SERVER_SOURCES ${SERVER_CODEGEN_SOURCES})
 
@@ -53,4 +55,5 @@ target_link_libraries(server ngrestutils ngrestcommon ngrestjson ngrestengine
   ${Boost_LIBRARIES}
   ${Flann_LIBRARIES}
   ${HDF5_LIBRARIES}
-  ${OpenCV_LIBS})
+  ${OpenCV_LIBS}
+)

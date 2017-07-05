@@ -146,4 +146,4 @@ bool AffineShape::normalizeAffine(const Mat &img, float x, float y, float s, flo
   return false;
 }
 
-};
+}

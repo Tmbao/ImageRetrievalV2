@@ -9,16 +9,20 @@
 #ifndef database_params_h
 #define database_params_h
 
+#include <boost/container/vector.hpp>
 #include <boost/filesystem.hpp>
 #include <string>
-#include <vector>
+
+
+namespace ir {
 
 enum CacheTag {
   IMAGE,
   KEYPOINT,
   DESCRIPTOR,
   WEIGHT,
-  INDEX
+  INDEX,
+  TERM_FREQUENCY
 };
 
 /**
@@ -46,12 +50,14 @@ struct DatabaseParams {
    * The returned results are just filenames, use `getFullPath` to get the
    * full path of each file.
    */
-  std::vector<std::string> getDocuments();
+  boost::container::vector<std::string> getDocuments();
 
   /**
    * Get the full path of an image associated with a `CacheTag`.
    */
   std::string getFullPath(const std::string& docName, CacheTag tag = IMAGE);
 };
+
+}
 
 #endif /* database_params_h */

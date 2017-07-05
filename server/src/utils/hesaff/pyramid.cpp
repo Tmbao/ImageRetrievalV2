@@ -302,4 +302,4 @@ void HessianDetector::detectPyramidKeypoints(const Mat &image) {
   }
 }
 
-};
+}

@@ -30,6 +30,6 @@ cv::Mat halfImage(const cv::Mat &input);
 
 double getTime();
 
-};
+}
 
 #endif // __HELPERS_H__

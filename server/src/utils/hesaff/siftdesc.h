@@ -68,6 +68,6 @@ struct SIFTDescriptor {
   float *w0, *w1;
 };
 
-};
+}
 
 #endif //__SIFTDESC_H__

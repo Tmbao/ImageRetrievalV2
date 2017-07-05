@@ -3,13 +3,10 @@
 
 #include "server.h"
 
-// OpenCV libraries
-#include <opencv2/opencv.hpp>
-
+//#include "utils/ir/ir_instance.h"
 #include "utils/mask/mask_impl.h"
 
 
 std::string server::processVideo(const std::string& path) {
-  cv::Mat m;
   return "";
 }

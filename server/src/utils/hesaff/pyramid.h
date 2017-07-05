@@ -87,6 +87,6 @@ struct HessianDetector {
   Mat low, cur, high;
 };
 
-};
+}
 
 #endif // __PYRAMID_H__

@@ -163,6 +163,6 @@ void extract(Mat src, af::array& keypoints, af::array& descriptors) {
   descriptors = detector.exportDescriptors();
 }
 
-};
+}
 
 #endif /* hesaff_h */

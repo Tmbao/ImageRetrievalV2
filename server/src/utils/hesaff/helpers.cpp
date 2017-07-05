@@ -348,4 +348,4 @@ Mat halfImage(const Mat &input) {
   return n;
 }
 
-};
+}

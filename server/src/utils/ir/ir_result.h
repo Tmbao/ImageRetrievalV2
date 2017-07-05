@@ -11,6 +11,9 @@
 
 #include <string>
 
+
+namespace ir {
+
 class IrResult {
  private:
   std::string name_;
@@ -28,5 +31,7 @@ class IrResult {
     return score_;
   }
 };
+
+}
 
 #endif /* ir_result_h */
