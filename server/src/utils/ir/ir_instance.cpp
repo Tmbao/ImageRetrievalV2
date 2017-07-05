@@ -23,6 +23,9 @@
 #include "../hesaff/hesaff.h"
 
 
+ir::IrInstance* ir::IrInstance::instance_ = NULL;
+boost::mutex ir::IrInstance::initMutex_;
+
 ir::IrInstance::IrInstance() {
   // Impelementation goes here!
   buildIndexIfNecessary();

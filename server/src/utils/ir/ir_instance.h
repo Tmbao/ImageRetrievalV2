@@ -108,9 +108,6 @@ class IrInstance {
   boost::container::vector<IrResult> retrieve(const cv::Mat& image, int topK = -1);
 };
 
-IrInstance* IrInstance::instance_ = NULL;
-boost::mutex IrInstance::initMutex_;
-
 }
 
 #endif /* ir_instance_h */
