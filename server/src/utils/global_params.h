@@ -11,11 +11,11 @@
 
 #include <boost/thread.hpp>
 
-struct GlobalParameters {
+struct GlobalParams {
   bool overwrite;
   size_t nThreads;
   
-  GlobalParameters() {
+  GlobalParams() {
     overwrite = false;
     nThreads = boost::thread::hardware_concurrency();
   }

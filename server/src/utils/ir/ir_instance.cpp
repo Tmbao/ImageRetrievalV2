@@ -25,9 +25,11 @@
 
 ir::IrInstance* ir::IrInstance::instance_ = NULL;
 boost::mutex ir::IrInstance::initMutex_;
+GlobalParams ir::IrInstance::globalParams_;
+ir::QuantizationParams ir::IrInstance::quantParams_;
+ir::DatabaseParams ir::IrInstance::dbParams_;
 
 ir::IrInstance::IrInstance() {
-  // Impelementation goes here!
   buildIndexIfNecessary();
   buildDatabase();
 }
@@ -35,6 +37,20 @@ ir::IrInstance::IrInstance() {
 void ir::IrInstance::createInstanceIfNecessary() {
   boost::mutex::scoped_lock scopedLock(initMutex_);
   if (instance_ == NULL) {
+    instance_ = new ir::IrInstance();
+  }
+}
+
+void ir::IrInstance::createInstanceIfNecessary(
+  GlobalParams globalParams,
+  QuantizationParams quantParams,
+  DatabaseParams dbParams
+) {
+  boost::mutex::scoped_lock scopedLock(initMutex_);
+  if (instance_ == NULL) {
+    globalParams_ = globalParams;
+    quantParams_ = quantParams;
+    dbParams_ = dbParams;
     instance_ = new ir::IrInstance();
   }
 }
@@ -47,7 +63,7 @@ void ir::IrInstance::buildIndexIfNecessary() {
     quantParams_.codebookName);
 
   flann::IndexParams* indexParams;
-  if (!globalParams.overwrite && boost::filesystem::exists(quantParams_.indexFile)) {
+  if (!globalParams_.overwrite && boost::filesystem::exists(quantParams_.indexFile)) {
     indexParams = new flann::SavedIndexParams(quantParams_.indexFile);
   } else {
     indexParams = new flann::KDTreeIndexParams(quantParams_.nTrees);
@@ -70,7 +86,7 @@ void ir::IrInstance::extractDbIfNecessary(
   // Check if the feature exists
   if (boost::filesystem::exists(descPath) &&
       boost::filesystem::exists(kpPath) &&
-      !globalParams.overwrite) {
+      !globalParams_.overwrite) {
     keypoints = af::readArray(kpPath.c_str(), "");
     descriptors = af::readArray(descPath.c_str(), "");
   } else {
@@ -108,7 +124,7 @@ void ir::IrInstance::quantizeDbIfNecessary(
   // Check if quantization data exists
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(weightPath) &&
-      !globalParams.overwrite) {
+      !globalParams_.overwrite) {
     loadVector(indices, indexPath);
     loadVector(weights, weightPath);
   } else {
@@ -127,7 +143,7 @@ void ir::IrInstance::computeTFDbIfNecessary(
   std::string tfPath = dbParams_.getFullPath(docName, TERM_FREQUENCY);
 
   // Check if tf exists
-  if (boost::filesystem::exists(tfPath) && !globalParams.overwrite) {
+  if (boost::filesystem::exists(tfPath) && !globalParams_.overwrite) {
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
     computeTF(indices, weights, termFreq);
@@ -186,7 +202,7 @@ void ir::IrInstance::buildDatabase() {
   // Initialize a thread pool
   boost::thread_group threads;
   boost::asio::io_service ioService;
-  for (size_t i = 0; i < globalParams.nThreads; ++i) {
+  for (size_t i = 0; i < globalParams_.nThreads; ++i) {
     threads.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
   }
 

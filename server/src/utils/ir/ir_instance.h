@@ -36,26 +36,25 @@ class IrInstance {
   // Static variables
   static IrInstance* instance_;
   static boost::mutex initMutex_;
+  static GlobalParams globalParams_;
+  static QuantizationParams quantParams_;
+  static DatabaseParams dbParams_;
 
-  GlobalParameters globalParams;
-  
   // Documents
   boost::container::vector<std::string> docNames_;
 
   // Quantization variables
   flann::Index< flann::L2<float> >* quantIndex_;
-  QuantizationParams quantParams_;
 
   // Bag-of-word variables
   af::array database_;
   boost::container::vector<af::array> invIndex_;
   af::array invDocFreq_;
-  DatabaseParams dbParams_;
 
   IrInstance();
 
   // Construction methods
-
+  
   void createInstanceIfNecessary();
 
   void buildIndexIfNecessary();
@@ -103,7 +102,16 @@ class IrInstance {
  public:
 
   /**
-   * Retrieve a list of simiar image in the database along with their score.
+   * Creates an instance.
+   */
+  void createInstanceIfNecessary(
+    GlobalParams globalParams,
+    QuantizationParams quantParams,
+    DatabaseParams dbParams
+  );
+
+  /**
+   * Retrieves a list of simiar image in the database along with their score.
    */
   boost::container::vector<IrResult> retrieve(const cv::Mat& image, int topK = -1);
 };

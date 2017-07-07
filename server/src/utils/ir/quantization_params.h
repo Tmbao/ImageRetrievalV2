@@ -37,7 +37,7 @@ struct QuantizationParams {
     indexFile = "";
   }
 };
-  
+
 }
 
 #endif /* quantization_params_h */

@@ -40,9 +40,11 @@ struct DatabaseParams {
     cacheFolder = "";
 
     // Create cache directory if necessary
+    /*
     if (!boost::filesystem::exists(boost::filesystem::path(cacheFolder))) {
       boost::filesystem::create_directory(boost::filesystem::path(cacheFolder));
     }
+    */
   }
 
   /**
