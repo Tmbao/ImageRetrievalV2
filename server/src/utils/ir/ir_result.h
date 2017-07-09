@@ -17,17 +17,17 @@ namespace ir {
 class IrResult {
  private:
   std::string name_;
-  double score_;
+  float score_;
 
  public:
-  IrResult(std::string name, double score):
+  IrResult(std::string name, float score):
     name_(name), score_(score) {}
 
-  std::string name() {
+  std::string name() const {
     return name_;
   }
 
-  double score() {
+  float score() const {
     return score_;
   }
 };

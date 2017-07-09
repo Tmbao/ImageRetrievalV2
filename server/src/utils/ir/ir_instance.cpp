@@ -16,28 +16,33 @@
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/thread.hpp>
+#include <boost/range/algorithm/for_each.hpp>
 #include <flann/io/hdf5.h>
 #include <fstream>
+#include <glog/logging.h>
 #include <numeric>
 
 #include "../hesaff/hesaff.h"
 
 
-ir::IrInstance* ir::IrInstance::instance_ = NULL;
+std::shared_ptr<ir::IrInstance> ir::IrInstance::instance_ = nullptr;
 boost::mutex ir::IrInstance::initMutex_;
 GlobalParams ir::IrInstance::globalParams_;
 ir::QuantizationParams ir::IrInstance::quantParams_;
 ir::DatabaseParams ir::IrInstance::dbParams_;
 
 ir::IrInstance::IrInstance() {
+  af::setDevice(0);
+  af::info();
+
   buildIndexIfNecessary();
   buildDatabase();
 }
 
 void ir::IrInstance::createInstanceIfNecessary() {
   boost::mutex::scoped_lock scopedLock(initMutex_);
-  if (instance_ == NULL) {
-    instance_ = new ir::IrInstance();
+  if (instance_ == nullptr) {
+    instance_ = std::shared_ptr<ir::IrInstance>(new ir::IrInstance());
   }
 }
 
@@ -47,37 +52,75 @@ void ir::IrInstance::createInstanceIfNecessary(
   DatabaseParams dbParams
 ) {
   boost::mutex::scoped_lock scopedLock(initMutex_);
-  if (instance_ == NULL) {
+  if (instance_ == nullptr) {
     globalParams_ = globalParams;
     quantParams_ = quantParams;
     dbParams_ = dbParams;
-    instance_ = new ir::IrInstance();
+    instance_ = std::shared_ptr<ir::IrInstance>(new ir::IrInstance());
   }
 }
 
+template <typename T>
+void save(const std::vector<T> &data, const std::string &filename) {
+  std::ofstream ofs(filename);
+  boost::archive::binary_oarchive bo(ofs);
+  bo << data;
+}
+
+template <typename T>
+void load(std::vector<T> &data, const std::string &filename) {
+  std::ifstream ifs(filename);
+  boost::archive::binary_iarchive bi(ifs);
+  bi >> data;
+}
+
+template <typename T, size_t N>
+void save(const boost::multi_array<T, N> &data, const std::string &filename) {
+  std::ofstream ofs(filename);
+  boost::archive::binary_oarchive bo(ofs);
+  bo << boost::serialization::make_array(data.shape(), N);
+  bo << boost::serialization::make_array(data.data(), data.num_elements());
+}
+
+template <typename T, size_t N>
+void load(boost::multi_array<T, N> &data, const std::string &filename) {
+  std::ifstream ifs(filename);
+  boost::archive::binary_iarchive bi(ifs);
+  boost::array<std::size_t, N> shape;
+  bi >> boost::serialization::make_array(shape.data(), N);
+  data.resize(shape);
+  bi >> boost::serialization::make_array(data.data(), data.num_elements());
+}
+
 void ir::IrInstance::buildIndexIfNecessary() {
+  DLOG(INFO) << "Started reading codebook file";
   flann::Matrix<float> codebook;
   flann::load_from_file(
     codebook,
     quantParams_.codebookFile,
     quantParams_.codebookName);
+  DLOG(INFO) << "Finished reading codebook file";
 
+  DLOG(INFO) << "Started creating index";
   flann::IndexParams* indexParams;
   if (!globalParams_.overwrite && boost::filesystem::exists(quantParams_.indexFile)) {
     indexParams = new flann::SavedIndexParams(quantParams_.indexFile);
   } else {
     indexParams = new flann::KDTreeIndexParams(quantParams_.nTrees);
   }
+  DLOG(INFO) << "Finished creating index";
 
+  DLOG(INFO) << "Started constructing KDTree";
   quantIndex_ = new flann::Index< flann::L2<float> >(codebook, *indexParams);
   quantIndex_->buildIndex();
   quantIndex_->save(quantParams_.indexFile);
+  DLOG(INFO) << "Finished constructing KDTree";
 }
 
 void ir::IrInstance::extractDbIfNecessary(
   const std::string &docName,
-  af::array &keypoints,
-  af::array &descriptors) {
+  boost::multi_array<float, 2> &keypoints,
+  boost::multi_array<float, 2> &descriptors) {
 
   std::string imagePath = dbParams_.getFullPath(docName, IMAGE);
   std::string descPath = dbParams_.getFullPath(docName, DESCRIPTOR);
@@ -87,34 +130,19 @@ void ir::IrInstance::extractDbIfNecessary(
   if (boost::filesystem::exists(descPath) &&
       boost::filesystem::exists(kpPath) &&
       !globalParams_.overwrite) {
-    keypoints = af::readArray(kpPath.c_str(), "");
-    descriptors = af::readArray(descPath.c_str(), "");
+    load(keypoints, kpPath);
+    load(descriptors, descPath);
   } else {
     cv::Mat image = cv::imread(imagePath);
-    af::array keypoints, descriptors;
     hesaff::extract(image, keypoints, descriptors);
-    af::saveArray("", keypoints, kpPath.c_str());
-    af::saveArray("", descriptors, kpPath.c_str());
+    save(keypoints, kpPath);
+    save(descriptors, descPath);
   }
-}
-
-template <typename T>
-void saveVector(const std::vector<T> &data, const std::string &filename) {
-  std::ofstream ofs(filename);
-  boost::archive::binary_oarchive bo(ofs);
-  bo << data;
-}
-
-template <typename T>
-void loadVector(std::vector<T> &data, const std::string &filename) {
-  std::ifstream ifs(filename);
-  boost::archive::binary_iarchive bi(ifs);
-  bi >> data;
 }
 
 void ir::IrInstance::quantizeDbIfNecessary(
   const std::string &docName,
-  const af::array &descriptors,
+  boost::multi_array<float, 2> &descriptors,
   std::vector<size_t> &indices,
   std::vector<float> &weights) {
 
@@ -125,12 +153,12 @@ void ir::IrInstance::quantizeDbIfNecessary(
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(weightPath) &&
       !globalParams_.overwrite) {
-    loadVector(indices, indexPath);
-    loadVector(weights, weightPath);
+    load(indices, indexPath);
+    load(weights, weightPath);
   } else {
     quantize(descriptors, indices, weights);
-    saveVector(indices, indexPath);
-    saveVector(weights, weightPath);
+    save(indices, indexPath);
+    save(weights, weightPath);
   }
 }
 
@@ -152,33 +180,50 @@ void ir::IrInstance::computeTFDbIfNecessary(
 }
 
 void ir::IrInstance::loadDocumentTask(
-  ir::IrInstance* &instance,
-  boost::container::vector< boost::container::set<size_t> > &rawInvIndex,
+  IrInstance* &instance,
+  std::vector<size_t> *rawInvDocFreq,
+  std::vector<boost::mutex> *rawInvMutex,
+  std::vector< std::set<size_t> > *rawInvIndex,
   const size_t &docId) {
 
   std::string docName = instance->docNames_.at(docId);
+  DLOG(INFO) << "Started loading document #" + std::to_string(docId) + " " + docName;
+
+  // Make sure that all threads use a single device
+  af::setDevice(0);
 
   // Extract features
-  af::array keypoints, descriptors;
+  DLOG(INFO) << "Started extracting " + docName;
+  boost::multi_array<float, 2> keypoints, descriptors;
   instance->extractDbIfNecessary(docName, keypoints, descriptors);
 
   // Quantize
+  DLOG(INFO) << "Started quantizing " + docName;
   std::vector<size_t> indices;
   std::vector<float> weights;
   instance->quantizeDbIfNecessary(docName, descriptors, indices, weights);
 
   // Build bag-of-words vector
+  DLOG(INFO) << "Started computing TF " + docName;
   af::array termFreq;
   instance->computeTFDbIfNecessary(docName, indices, weights, termFreq);
 
+  DLOG(INFO) << "Started migrating changes " + docName;
+
   // Update database
-  instance->database_(docId) = termFreq;
+  instance->databaseMutex_.lock();
+  instance->database_.row(docId) = termFreq;
+  instance->databaseMutex_.unlock();
 
   // Add indices to inverted index and update idf
   for (size_t i = 0; i < indices.size(); ++i) {
-    rawInvIndex.at(indices.at(i)).insert(docId);
-    instance->invDocFreq_(indices.at(i)) += 1;
+    rawInvMutex->at(indices.at(i)).lock();
+    rawInvIndex->at(indices.at(i)).insert(docId);
+    rawInvDocFreq->at(indices.at(i)) += 1;
+    rawInvMutex->at(indices.at(i)).unlock();
   }
+
+  DLOG(INFO) << "Finished " + docName;
 }
 
 void ir::IrInstance::buildDatabase() {
@@ -195,64 +240,94 @@ void ir::IrInstance::buildDatabase() {
    */
 
   // Initialize database
-  database_ = af::sparse(af::array(nDocs, dbParams_.nWords));
-  boost::container::vector< boost::container::set<size_t> > rawInvIndex(dbParams_.nWords);
-  invDocFreq_ = af::constant(0, dbParams_.nWords);
+  DLOG(INFO) << "Started intializing database, nWords = " << dbParams_.nWords;
+  database_ = af::array(nDocs, dbParams_.nWords);
+  std::vector< std::set<size_t> > rawInvIndex(dbParams_.nWords);
+  std::vector<size_t> rawInvDocFreq(dbParams_.nWords);
+  std::vector<boost::mutex> rawInvMutex(dbParams_.nWords);
+  invIndex_.resize(dbParams_.nWords);
 
   // Initialize a thread pool
   boost::thread_group threads;
   boost::asio::io_service ioService;
+
+  // Initialize tasks
+  DLOG(INFO) << "Started adding tasks, nTasks = " << nDocs;
+  for (size_t i = 0; i < docNames_.size(); ++i) {
+    ioService.post(boost::bind(
+                     loadDocumentTask,
+                     this,
+                     &rawInvDocFreq,
+                     &rawInvMutex,
+                     &rawInvIndex,
+                     i));
+  }
+  DLOG(INFO) << "Finished adding tasks, nTasks = " << nDocs;
+
+  // Initialize threads
+  DLOG(INFO) << "Started adding threads, nThreads = " << globalParams_.nThreads;
   for (size_t i = 0; i < globalParams_.nThreads; ++i) {
     threads.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
   }
-
-  // Initialize tasks
-  for (size_t i = 0; i < docNames_.size(); ++i) {
-    ioService.post(boost::bind(loadDocumentTask, this, rawInvIndex, i));
-  }
+  DLOG(INFO) << "Finished adding threads, nThreads = " << globalParams_.nThreads;
 
   // Join tasks
-  ioService.stop();
   threads.join_all();
+  ioService.stop();
+  DLOG(INFO) << "Finished all tasks";
 
   // Compute idf
+  DLOG(INFO) << "Started computing idf";
+  invDocFreq_ = af::array(rawInvDocFreq.size(), rawInvDocFreq.data());
   invDocFreq_ = af::log((float) nDocs / (1 + invDocFreq_));
 
   // Build inverted index
+  DLOG(INFO) << "Started building inverted index";
   for (size_t i = 0; i < rawInvIndex.size(); ++i) {
-    size_t *indexData = new size_t[rawInvIndex.at(i).size()];
+    if (rawInvIndex.at(i).size() == 0) {
+      continue;
+    }
+    size_t* indexData = new size_t[rawInvIndex.at(i).size()];
     std::copy(rawInvIndex.at(i).begin(), rawInvIndex.at(i).end(), indexData);
 
     invIndex_.at(i) = af::array(rawInvIndex.at(i).size(), indexData);
   }
+
+  DLOG(INFO) << "Started compressing database";
+  database_ = af::sparse(database_);
+
+  DLOG(INFO) << "Finished building database";
 }
 
 void ir::IrInstance::quantize(
-  const af::array &descriptors,
+  boost::multi_array<float, 2> &descriptors,
   std::vector<size_t> &termIndices,
   std::vector<float> &termWeights) {
 
   flann::Matrix<float> queries(
-    descriptors.host<float>(),
-    descriptors.dims(0),
-    descriptors.dims(1));
+    descriptors.data(),
+    descriptors.shape()[0],
+    descriptors.shape()[1]);
 
   flann::Matrix<int> indices(
-    new int[descriptors.dims(0) * quantParams_.knn],
-    descriptors.dims(0),
+    new int[descriptors.shape()[0] * quantParams_.knn],
+    descriptors.shape()[0],
     quantParams_.knn);
 
   flann::Matrix<float> dists(
-    new float[descriptors.dims(0) * quantParams_.knn],
-    descriptors.dims(0),
+    new float[descriptors.shape()[0] * quantParams_.knn],
+    descriptors.shape()[0],
     quantParams_.knn);
+
+  flann::SearchParams searchParams(quantParams_.nChecks);
+  searchParams.cores = globalParams_.nThreads;
 
   quantIndex_->knnSearch(
     queries,
     indices,
     dists,
     quantParams_.knn,
-    flann::SearchParams(quantParams_.nChecks));
+    searchParams);
 
   // Fetch indices
   af::array afIndices(indices.rows, indices.cols, indices.ptr());
@@ -279,76 +354,86 @@ void ir::IrInstance::computeTF(
   af::array &termFreq) {
 
   // Join indices and weights
-  termFreq = af::constant(0, dbParams_.nWords);
-  af::array rawFreq = af::constant(0, dbParams_.nWords);
+  std::vector<float> rawTermFreq(dbParams_.nWords);
+  std::vector<size_t> rawFreq(dbParams_.nWords);
+  std::set<size_t> uniqueIndices;
   for (size_t i = 0; i < indices.size(); ++i) {
-    termFreq(indices.at(i)) += weights.at(i);
-    rawFreq(indices.at(i)) += 1;
+    rawTermFreq.at(indices.at(i)) += weights.at(i);
+    rawFreq.at(indices.at(i)) += 1;
+    uniqueIndices.insert(indices.at(i));
   }
-  termFreq = sparse(termFreq);
-  rawFreq = sparse(rawFreq);
 
-  // Compute tfidf
-  termFreq /= af::sqrt(af::abs(rawFreq));
-  float totalFreq = *af::sum(termFreq).host<float>();
-  termFreq /= af::sqrt(af::abs(termFreq / totalFreq));
+  // Compute tf
+  float totalFreq = 0;
+  for (size_t index : uniqueIndices) {
+    rawTermFreq.at(index) /= sqrt(rawFreq.at(index));
+    totalFreq += rawTermFreq.at(index);
+  }
+  for (size_t index : uniqueIndices) {
+    rawTermFreq.at(index) = sqrt(rawTermFreq.at(index) / totalFreq);
+  }
+  termFreq = af::array(rawTermFreq.size(), rawTermFreq.data());
 }
 
-void ir::IrInstance::computeScore(const af::array &bow, boost::container::vector<float> &scores) {
+void ir::IrInstance::computeScore(const af::array &bow, std::vector<float> &scores) {
   af::array afScores = af::matmul(database_, bow);
   float* ptrScores = afScores.host<float>();
-  scores = boost::container::vector<float>(ptrScores, ptrScores + afScores.dims(0));
+  scores = std::vector<float>(ptrScores, ptrScores + afScores.dims(0));
 }
 
-boost::container::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int topK) {
+std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int topK) {
   createInstanceIfNecessary();
 
   // Extract features from the image using perdoch's hessaff
-  af::array keypoints, descriptors;
+  DLOG(INFO) << "Started extracting features from the query";
+  boost::multi_array<float, 2> keypoints, descriptors;
   hesaff::extract(image.clone(), keypoints, descriptors);
+  DLOG(INFO) << "Finished extracting features from the query";
 
   // Carry out quantization, using soft-assignment with `quantParams_`
+  DLOG(INFO) << "Started quantizing the features";
   std::vector<size_t> indices;
   std::vector<float> weights;
-  quantize(descriptors, indices, weights);
+  instance_->quantize(descriptors, indices, weights);
+  DLOG(INFO) << "Finished quantizing the features";
 
   // Build bag-of-words vector
+  DLOG(INFO) << "Started computing TF vector";
   af::array bow;
-  computeTF(indices, weights, bow);
+  instance_->computeTF(indices, weights, bow);
+  DLOG(INFO) << "Finished computing TF vector";
+
   // Compute tfidf
-  // TODO: Check sparse * sparse == sparse ?
-  bow *= invDocFreq_;
+  DLOG(INFO) << "Started computing TFIDF vector";
+  bow *= instance_->invDocFreq_;
+  DLOG(INFO) << "Finished computing TFIDF vector";
 
   // Compute scores
-  boost::container::vector<float> scores;
-  computeScore(bow, scores);
+  DLOG(INFO) << "Started computing scores";
+  std::vector<float> scores;
+  instance_->computeScore(bow, scores);
+  DLOG(INFO) << "Finished computing scores";
 
   // Sort scores and return
-  boost::container::vector<size_t> docIndices;
+  std::vector<size_t> docIndices(scores.size());
   std::iota(docIndices.begin(), docIndices.end(), 0);
 
   std::sort(
     docIndices.begin(),
     docIndices.end(),
-  [&scores](const size_t &lhs, const size_t &rhs) -> int {
-    if (scores.at(lhs) > scores.at(rhs)) {
-      return -1;
-    } else if (scores.at(lhs) < scores.at(rhs)) {
-      return 1;
-    } else {
-      return 0;
-    }
+  [&scores](const size_t &lhs, const size_t &rhs) -> bool {
+    return scores.at(lhs) > scores.at(rhs);
   });
 
-  boost::container::vector<ir::IrResult> result;
+  std::vector<ir::IrResult> result;
   if (topK == -1) {
     for (size_t id : docIndices) {
-      result.push_back(ir::IrResult(docNames_.at(id), scores.at(id)));
+      result.push_back(ir::IrResult(instance_->docNames_.at(id), scores.at(id)));
     }
   } else {
     for (size_t i = 0; i < topK; ++i) {
       size_t id = docIndices.at(i);
-      result.push_back(ir::IrResult(docNames_.at(id), scores.at(id)));
+      result.push_back(ir::IrResult(instance_->docNames_.at(id), scores.at(id)));
     }
   }
   return result;

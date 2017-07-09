@@ -5,9 +5,12 @@ project (server CXX)
 find_package(ArrayFire REQUIRED)
 find_package(Boost COMPONENTS filesystem thread serialization system REQUIRED)
 find_package(Flann REQUIRED)
-find_package(Hdf5 REQUIRED)
-find_package(OpenCV REQUIRED)
+find_package(GLog REQUIRED)
 find_package(GTest REQUIRED)
+find_package(Hdf5 REQUIRED)
+find_package(OpenCL REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(Threads)
 
 set(SERVER_HEADERS server.h)
 
@@ -49,6 +52,7 @@ include_directories(${PROJECT_SOURCE_DIR}
   ${ArrayFire_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${Flann_INCLUDE_DIRS}
+  ${GLog_INCLUDE_DIRS}
 )
 
 include_directories(${PROJECT_TEST_DIR}
@@ -56,6 +60,7 @@ include_directories(${PROJECT_TEST_DIR}
   ${ArrayFire_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${Flann_INCLUDE_DIRS}
+  ${GLog_INCLUDE_DIRS}
   ${GTest_INCLUDE_DIRS}
 )
 
@@ -72,16 +77,22 @@ target_link_libraries(server ngrestutils ngrestcommon ngrestjson ngrestengine
   $ENV{NGREST_EXT_LIBS}
   ${ArrayFire_LIBRARIES}
   ${Boost_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
   ${Flann_LIBRARIES}
+  ${GLOG_LIBRARIES}
   ${HDF5_LIBRARIES}
+  ${OpenCL_LIBRARY}
   ${OpenCV_LIBS}
 )
 
 target_link_libraries(server_test server
   ${ArrayFire_LIBRARIES}
   ${Boost_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
   ${Flann_LIBRARIES}
+  ${GLOG_LIBRARIES}
   ${HDF5_LIBRARIES}
+  ${OpenCL_LIBRARY}
   ${OpenCV_LIBS}
   GTest::GTest
   GTest::Main

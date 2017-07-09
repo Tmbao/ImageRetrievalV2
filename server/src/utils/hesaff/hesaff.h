@@ -15,7 +15,8 @@
 #include "affine.h"
 #include "siftdesc.h"
 
-#include <arrayfire.h>
+#include <boost/multi_array.hpp>
+#include <glog/logging.h>
 
 namespace hesaff {
 
@@ -92,8 +93,8 @@ struct AffineHessianDetector : public HessianDetector, AffineShape, HessianKeypo
     }
   }
 
-  af::array exportKeypoints() {
-    af::array kps(keys.size(), 5);
+  void exportKeypoints(boost::multi_array<float, 2> &kps) {
+    kps.resize(boost::extents[keys.size()][5]);
     for (size_t i = 0; i < keys.size(); i++) {
       Keypoint &k = keys[i];
 
@@ -107,29 +108,30 @@ struct AffineHessianDetector : public HessianDetector, AffineShape, HessianKeypo
 
       A = svd.u * Mat::diag(svd.w) * svd.u.t();
 
-      kps(i, 0) = k.x;
-      kps(i, 1) = k.y;
-      kps(i, 2) = A.at<float>(0, 0);
-      kps(i, 3) = A.at<float>(0, 1);
-      kps(i, 4) = A.at<float>(1, 1);
+      kps[i][0] = k.x;
+      kps[i][1] = k.y;
+      kps[i][2] = A.at<float>(0, 0);
+      kps[i][3] = A.at<float>(0, 1);
+      kps[i][4] = A.at<float>(1, 1);
     }
-    return kps;
   }
 
-  af::array exportDescriptors() {
-    af::array drs(keys.size(), 128);
+  void exportDescriptors(boost::multi_array<float, 2> &drs) {
+    drs.resize(boost::extents[keys.size()][128]);
     for (size_t i = 0; i < keys.size(); i++) {
       Keypoint &k = keys[i];
       for (size_t j = 0; j < 128; j++) {
-        drs(i, j) = int(k.desc[j]);
+        drs[i][j] = float(k.desc[j]);
       }
     }
-    return drs;
   }
 
 };
 
-void extract(Mat src, af::array& keypoints, af::array& descriptors) {
+void extract(
+  Mat src,
+  boost::multi_array<float, 2>& keypoints,
+  boost::multi_array<float, 2>& descriptors) {
   Mat image(src.rows, src.cols, CV_32FC1, Scalar(0));
 
   float *out = image.ptr<float>(0);
@@ -159,8 +161,8 @@ void extract(Mat src, af::array& keypoints, af::array& descriptors) {
   t1 = getTime();
   detector.detectPyramidKeypoints(image);
 
-  keypoints = detector.exportKeypoints();
-  descriptors = detector.exportDescriptors();
+  detector.exportKeypoints(keypoints);
+  detector.exportDescriptors(descriptors);
 }
 
 }

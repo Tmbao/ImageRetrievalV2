@@ -9,9 +9,9 @@
 #ifndef database_params_h
 #define database_params_h
 
-#include <boost/container/vector.hpp>
 #include <boost/filesystem.hpp>
 #include <string>
+#include <vector>
 
 
 namespace ir {
@@ -29,22 +29,16 @@ enum CacheTag {
  * A parameter type used for bag-of-words constructing.
  */
 struct DatabaseParams {
-  int nWords;
+  size_t nWords;
   std::string imageFolder;
   std::string cacheFolder;
 
-  DatabaseParams() {
-    nWords = 1000000;
-    //TODO: Update these
-    imageFolder = "";
-    cacheFolder = "";
+  DatabaseParams(
+    size_t nWords = 1000000,
+    std::string imageFolder = "",
+    std::string cacheFolder = ""):
+    nWords(nWords), imageFolder(imageFolder), cacheFolder(cacheFolder) {
 
-    // Create cache directory if necessary
-    /*
-    if (!boost::filesystem::exists(boost::filesystem::path(cacheFolder))) {
-      boost::filesystem::create_directory(boost::filesystem::path(cacheFolder));
-    }
-    */
   }
 
   /**
@@ -52,7 +46,7 @@ struct DatabaseParams {
    * The returned results are just filenames, use `getFullPath` to get the
    * full path of each file.
    */
-  boost::container::vector<std::string> getDocuments();
+  std::vector<std::string> getDocuments();
 
   /**
    * Get the full path of an image associated with a `CacheTag`.

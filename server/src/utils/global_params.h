@@ -14,11 +14,11 @@
 struct GlobalParams {
   bool overwrite;
   size_t nThreads;
-  
-  GlobalParams() {
-    overwrite = false;
-    nThreads = boost::thread::hardware_concurrency();
-  }
+
+  GlobalParams(
+    bool overwrite = false,
+    size_t nThreads = boost::thread::hardware_concurrency()):
+    overwrite(overwrite), nThreads(nThreads) {}
 };
 
 #endif /* global_params_h */

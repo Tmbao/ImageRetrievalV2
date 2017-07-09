@@ -18,24 +18,29 @@ namespace ir {
  * A parameter type used for quantization step.
  */
 struct QuantizationParams {
-  int nTrees;
+  size_t nTrees;
   size_t knn;
-  int nChecks;
+  size_t nChecks;
   float deltaSqr;
   std::string codebookFile;
   std::string codebookName;
   std::string indexFile;
 
-  QuantizationParams() {
-    nTrees = 8;
-    knn = 3;
-    nChecks = 800;
-    deltaSqr = 6250;
-    //TODO: Update these
-    codebookFile = "";
-    codebookName = "";
-    indexFile = "";
-  }
+  QuantizationParams(
+    size_t nTrees = 8,
+    size_t knn = 3,
+    size_t nChecks = 800,
+    float deltaSqr = 6250,
+    std::string codebookFile = "",
+    std::string codebookName = "",
+    std::string indexFile = ""):
+    nTrees(nTrees),
+    knn(knn),
+    nChecks(nChecks),
+    deltaSqr(deltaSqr),
+    codebookFile(codebookFile),
+    codebookName(codebookName),
+    indexFile(indexFile) {}
 };
 
 }

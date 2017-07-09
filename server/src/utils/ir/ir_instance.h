@@ -9,12 +9,15 @@
 #ifndef ir_instance_h
 #define ir_instance_h
 
+#define FLANN_USE_OPENCL
+
 #include <arrayfire.h>
-#include <boost/container/vector.hpp>
-#include <boost/container/set.hpp>
+#include <boost/multi_array.hpp>
 #include <boost/thread.hpp>
 #include <flann/flann.hpp>
+#include <memory>
 #include <opencv2/opencv.hpp>
+#include <set>
 #include <vector>
 
 #include "../global_params.h"
@@ -34,28 +37,29 @@ class IrInstance {
  private:
 
   // Static variables
-  static IrInstance* instance_;
+  static std::shared_ptr<IrInstance> instance_;
   static boost::mutex initMutex_;
   static GlobalParams globalParams_;
   static QuantizationParams quantParams_;
   static DatabaseParams dbParams_;
 
   // Documents
-  boost::container::vector<std::string> docNames_;
+  std::vector<std::string> docNames_;
 
   // Quantization variables
   flann::Index< flann::L2<float> >* quantIndex_;
 
   // Bag-of-word variables
   af::array database_;
-  boost::container::vector<af::array> invIndex_;
+  boost::mutex databaseMutex_;
+  std::vector<af::array> invIndex_;
   af::array invDocFreq_;
 
   IrInstance();
 
   // Construction methods
-  
-  void createInstanceIfNecessary();
+
+  static void createInstanceIfNecessary();
 
   void buildIndexIfNecessary();
 
@@ -63,12 +67,12 @@ class IrInstance {
 
   void extractDbIfNecessary(
     const std::string &docName,
-    af::array &keypoints,
-    af::array &descriptors);
+    boost::multi_array<float, 2> &keypoints,
+    boost::multi_array<float, 2> &descriptors);
 
   void quantizeDbIfNecessary(
     const std::string &docName,
-    const af::array &descriptors,
+    boost::multi_array<float, 2> &descriptors,
     std::vector<size_t> &indices,
     std::vector<float> &weights);
 
@@ -78,15 +82,18 @@ class IrInstance {
     const std::vector<float> &weights,
     af::array &termFreq);
 
+  //TODO: Update the flow to eliminate redundant tasks
   static void loadDocumentTask(
     IrInstance* &instance,
-    boost::container::vector< boost::container::set<size_t> > &rawInvIndex,
+    std::vector<size_t> *rawInvDocFreq,
+    std::vector<boost::mutex> *rawInvMutex,
+    std::vector< std::set<size_t> > *rawInvIndex,
     const size_t &docId);
 
   // Query methods
 
   void quantize(
-    const af::array &descriptors,
+    boost::multi_array<float, 2> &descriptors,
     std::vector<size_t> &termIndices,
     std::vector<float> &termWeights);
 
@@ -97,23 +104,24 @@ class IrInstance {
 
   void computeScore(
     const af::array& bow,
-    boost::container::vector<float> &scores);
+    std::vector<float> &scores);
 
  public:
 
   /**
    * Creates an instance.
    */
-  void createInstanceIfNecessary(
+  static void createInstanceIfNecessary(
     GlobalParams globalParams,
     QuantizationParams quantParams,
     DatabaseParams dbParams
   );
 
   /**
-   * Retrieves a list of simiar image in the database along with their score.
+   * Retrieves a list of simiar image in the database sorted according to
+   * their score.
    */
-  boost::container::vector<IrResult> retrieve(const cv::Mat& image, int topK = -1);
+  static std::vector<IrResult> retrieve(const cv::Mat& image, int topK = -1);
 };
 
 }

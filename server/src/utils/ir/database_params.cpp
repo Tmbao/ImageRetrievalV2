@@ -8,16 +8,21 @@
 
 #include "database_params.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/range/iterator_range.hpp>
 
 
-boost::container::vector<std::string> ir::DatabaseParams::getDocuments() {
-  boost::container::vector<std::string> docs;
+std::vector<std::string> ir::DatabaseParams::getDocuments() {
+  std::vector<std::string> docs;
   for (auto& entry :
        boost::make_iterator_range(
          boost::filesystem::directory_iterator(imageFolder),
          {})) {
-    docs.push_back(entry.path().filename().string());
+    std::string entryPath = entry.path().filename().string();
+    // Check if the file is an image file
+    if (boost::ends_with(entryPath, ".jpg")) {
+      docs.push_back(entry.path().filename().string());
+    }
 
   }
   return docs;
