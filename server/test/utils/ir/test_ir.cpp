@@ -119,5 +119,5 @@ TEST_F(TestIR, TestIrInstance_map) {
   map /= queries.size();
 
   DLOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.6);
+  EXPECT_GT(map, 0.8);
 }
