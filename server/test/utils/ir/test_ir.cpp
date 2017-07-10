@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include <boost/filesystem.hpp>
+#include <boost/math/special_functions/fpclassify.hpp>
 #include <fstream>
 #include <glog/logging.h>
 #include <utils/ir/ir_instance.h>
@@ -67,8 +68,6 @@ float computeAP(
 
   size_t intersectSize = 0;
   for (size_t i = 0, j = 0; i < ranklist.size(); ++i) {
-    ASSERT_EQ(std::isnan(ranklist.at(i).scores(), false));
-
     if (amb.count(getNameWithoutExtension(ranklist.at(i).name()))) {
       continue;
     }
@@ -106,6 +105,12 @@ TEST_F(TestIR, TestIrInstance_map) {
     auto fullPath = queryParams.getFullPath(query);
     auto queryMat = cv::imread(fullPath);
     auto ranklist = ir::IrInstance::retrieve(queryMat);
+    
+    // Verify ranklist
+    ASSERT_EQ(query, ranklist.at(0).name());
+    for (auto &item : ranklist) {
+      ASSERT_FALSE(boost::math::isnan(item.score()));
+    }
 
     auto goodSet = getGroundtruth(gtFolder, query, "good");
     auto okSet = getGroundtruth(gtFolder, query, "ok");
@@ -113,7 +118,6 @@ TEST_F(TestIR, TestIrInstance_map) {
 
     goodSet.insert(okSet.begin(), okSet.end());
 
-    ASSERT_EQ(query, ranklist.at(0).name());
     auto ap = computeAP(goodSet, junkSet, ranklist);
     map += ap;
 

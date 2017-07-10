@@ -178,7 +178,7 @@ void ir::IrInstance::computeTFDbIfNecessary(
   } else {
     computeTF(indices, weights, termFreq);
     //TODO: Uncomment this
-//    af::saveArray("", termFreq, tfPath.c_str());
+    af::saveArray("", termFreq, tfPath.c_str());
   }
 }
 
