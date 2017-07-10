@@ -67,6 +67,8 @@ float computeAP(
 
   size_t intersectSize = 0;
   for (size_t i = 0, j = 0; i < ranklist.size(); ++i) {
+    ASSERT_EQ(std::isnan(ranklist.at(i).scores(), false));
+
     if (amb.count(getNameWithoutExtension(ranklist.at(i).name()))) {
       continue;
     }
@@ -111,6 +113,7 @@ TEST_F(TestIR, TestIrInstance_map) {
 
     goodSet.insert(okSet.begin(), okSet.end());
 
+    ASSERT_EQ(query, ranklist.at(0).name());
     auto ap = computeAP(goodSet, junkSet, ranklist);
     map += ap;
 

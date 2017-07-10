@@ -136,7 +136,7 @@ void ir::IrInstance::extractDbIfNecessary(
     load(descriptors, descPath);
   } else {
     cv::Mat image = cv::imread(imagePath);
-    hesaff::extract(image, keypoints, descriptors);
+    hesaff::extract(image, keypoints, descriptors, true);
     save(keypoints, kpPath);
     save(descriptors, descPath);
   }
@@ -177,7 +177,8 @@ void ir::IrInstance::computeTFDbIfNecessary(
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
     computeTF(indices, weights, termFreq);
-    af::saveArray("", termFreq, tfPath.c_str());
+    //TODO: Uncomment this
+//    af::saveArray("", termFreq, tfPath.c_str());
   }
 }
 
@@ -185,7 +186,7 @@ void ir::IrInstance::loadDocumentTask(
   IrInstance* &instance,
   const size_t &batchId,
   const size_t &docId,
-  std::vector<size_t> *rawInvDocFreq,
+  std::vector<float> *rawInvDocFreq,
   std::vector<boost::mutex> *rawInvMutex,
   std::vector< std::set<size_t> > *rawInvIndex) {
 
@@ -232,9 +233,8 @@ void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
   const size_t &fromDocId,
   const size_t &untilDocId,
   std::vector< std::set<size_t> > &rawInvIndex,
-  std::vector<size_t> &rawInvDocFreq,
-  std::vector<boost::mutex> &rawInvMutex
-) {
+  std::vector<float> &rawInvDocFreq,
+  std::vector<boost::mutex> &rawInvMutex) {
 
   /**
    The following stuffs will be done sequentially and in parallel
@@ -292,7 +292,7 @@ void ir::IrInstance::buildDatabase() {
 
   database_.resize((nDocs - 1) / dbParams_.batchSize + 1);
   std::vector< std::set<size_t> > rawInvIndex(dbParams_.nWords);
-  std::vector<size_t> rawInvDocFreq(dbParams_.nWords);
+  std::vector<float> rawInvDocFreq(dbParams_.nWords);
   std::vector<boost::mutex> rawInvMutex(dbParams_.nWords);
   invIndex_.resize(dbParams_.nWords);
 
@@ -311,8 +311,12 @@ void ir::IrInstance::buildDatabase() {
 
   // Compute idf
   DLOG(INFO) << "Started computing idf";
+  for (size_t i = 0; i < rawInvDocFreq.size(); ++i) {
+    if (rawInvDocFreq.at(i) > 0) {
+      rawInvDocFreq.at(i) = log(nDocs / rawInvDocFreq.at(i));
+    }
+  }
   invDocFreq_ = af::array(rawInvDocFreq.size(), rawInvDocFreq.data());
-  invDocFreq_ = af::log((float) nDocs / (1 + invDocFreq_));
 
   // Build inverted index (Temporarily disabled)
 //  DLOG(INFO) << "Started building inverted index";
@@ -382,8 +386,8 @@ void ir::IrInstance::computeTF(
   af::array &termFreq) {
 
   // Join indices and weights
-  std::vector<float> rawTermFreq(dbParams_.nWords);
-  std::vector<size_t> rawFreq(dbParams_.nWords);
+  std::vector<float> rawTermFreq(dbParams_.nWords, 0);
+  std::vector<size_t> rawFreq(dbParams_.nWords, 0);
   std::set<size_t> uniqueIndices;
   for (size_t i = 0; i < indices.size(); ++i) {
     rawTermFreq.at(indices.at(i)) += weights.at(i);
@@ -394,11 +398,11 @@ void ir::IrInstance::computeTF(
   // Compute tf
   float totalFreq = 0;
   for (size_t index : uniqueIndices) {
-    rawTermFreq.at(index) /= sqrt(rawFreq.at(index));
+    rawTermFreq.at(index) = sqrt(rawTermFreq.at(index) / rawFreq.at(index));
     totalFreq += rawTermFreq.at(index);
   }
   for (size_t index : uniqueIndices) {
-    rawTermFreq.at(index) = sqrt(rawTermFreq.at(index) / totalFreq);
+    rawTermFreq.at(index) = rawTermFreq.at(index) / totalFreq;
   }
   termFreq = af::array(rawTermFreq.size(), rawTermFreq.data());
 }
@@ -417,7 +421,7 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
   // Extract features from the image using perdoch's hessaff
   DLOG(INFO) << "Started extracting features from the query";
   boost::multi_array<float, 2> keypoints, descriptors;
-  hesaff::extract(image.clone(), keypoints, descriptors);
+  hesaff::extract(image.clone(), keypoints, descriptors, true);
   DLOG(INFO) << "Finished extracting features from the query";
 
   // Carry out quantization, using soft-assignment with `quantParams_`
@@ -435,6 +439,7 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
 
   // Compute tfidf
   DLOG(INFO) << "Started computing TFIDF vector";
+  bow *= instance_->invDocFreq_;
   bow *= instance_->invDocFreq_;
   DLOG(INFO) << "Finished computing TFIDF vector";
 

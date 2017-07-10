@@ -71,7 +71,7 @@ class IrInstance {
     const size_t &fromDocId,
     const size_t &untilDocId,
     std::vector< std::set<size_t> > &rawInvIndex,
-    std::vector<size_t> &rawInvDocFreq,
+    std::vector<float> &rawInvDocFreq,
     std::vector<boost::mutex> &rawInvMutex
   );
 
@@ -97,7 +97,7 @@ class IrInstance {
     IrInstance* &instance,
     const size_t &batchId,
     const size_t &docId,
-    std::vector<size_t> *rawInvDocFreq,
+    std::vector<float> *rawInvDocFreq,
     std::vector<boost::mutex> *rawInvMutex,
     std::vector< std::set<size_t> > *rawInvIndex);
 
