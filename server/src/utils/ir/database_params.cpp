@@ -50,3 +50,7 @@ std::string ir::DatabaseParams::getFullPath(const std::string& docName, CacheTag
     throw "Tag not found!";
   }
 }
+
+std::string ir::DatabaseParams::getDatabasePath(const size_t &batchId) {
+  return joinPath(dbFolder, std::to_string(batchId) + ".db");
+}

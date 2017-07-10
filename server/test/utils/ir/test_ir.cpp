@@ -31,7 +31,7 @@ class TestIR : public ::testing::Test {
       codebookFile.string(),
       "clusters",
       indexFile.string());
-    ir::DatabaseParams dbParams(1000000, imageFolder.string(), cacheFolder.string());
+    ir::DatabaseParams dbParams(1000000, 128, imageFolder.string(), cacheFolder.string());
 
     ir::IrInstance::createInstanceIfNecessary(globalParams, quantParams, dbParams);
   }
@@ -95,7 +95,7 @@ TEST_F(TestIR, TestIrInstance_map) {
                   boost::filesystem::path("data") /
                   boost::filesystem::path("groundtruth");
 
-  ir::DatabaseParams queryParams(1000000, queryFolder.string());
+  ir::DatabaseParams queryParams(1000000, 100, queryFolder.string());
 
   auto queries = queryParams.getDocuments();
   float map = 0;

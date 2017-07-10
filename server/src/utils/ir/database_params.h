@@ -30,14 +30,22 @@ enum CacheTag {
  */
 struct DatabaseParams {
   size_t nWords;
+  size_t batchSize;
   std::string imageFolder;
   std::string cacheFolder;
+  std::string dbFolder;
 
   DatabaseParams(
     size_t nWords = 1000000,
+    size_t batchSize = 100,
     std::string imageFolder = "",
-    std::string cacheFolder = ""):
-    nWords(nWords), imageFolder(imageFolder), cacheFolder(cacheFolder) {
+    std::string cacheFolder = "",
+    std::string dbFolder = ""):
+    nWords(nWords),
+    batchSize(batchSize),
+    imageFolder(imageFolder),
+    cacheFolder(cacheFolder),
+    dbFolder(dbFolder) {
 
   }
 
@@ -49,9 +57,14 @@ struct DatabaseParams {
   std::vector<std::string> getDocuments();
 
   /**
-   * Get the full path of an image associated with a `CacheTag`.
+   * Returns the full path of an image associated with a `CacheTag`.
    */
   std::string getFullPath(const std::string& docName, CacheTag tag = IMAGE);
+
+  /**
+   * Returns the path of a batch of the database.
+   */
+  std::string getDatabasePath(const size_t &batchId);
 };
 
 }

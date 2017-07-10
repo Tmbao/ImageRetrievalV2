@@ -13,6 +13,8 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/fusion/algorithm/transformation/flatten.hpp>
+#include <boost/fusion/include/flatten.hpp>
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/thread.hpp>
@@ -181,10 +183,11 @@ void ir::IrInstance::computeTFDbIfNecessary(
 
 void ir::IrInstance::loadDocumentTask(
   IrInstance* &instance,
+  const size_t &batchId,
+  const size_t &docId,
   std::vector<size_t> *rawInvDocFreq,
   std::vector<boost::mutex> *rawInvMutex,
-  std::vector< std::set<size_t> > *rawInvIndex,
-  const size_t &docId) {
+  std::vector< std::set<size_t> > *rawInvIndex) {
 
   std::string docName = instance->docNames_.at(docId);
   DLOG(INFO) << "Started loading document #" + std::to_string(docId) + " " + docName;
@@ -193,42 +196,45 @@ void ir::IrInstance::loadDocumentTask(
   af::setDevice(0);
 
   // Extract features
-  DLOG(INFO) << "Started extracting " + docName;
   boost::multi_array<float, 2> keypoints, descriptors;
   instance->extractDbIfNecessary(docName, keypoints, descriptors);
 
-  // Quantize
-  DLOG(INFO) << "Started quantizing " + docName;
-  std::vector<size_t> indices;
-  std::vector<float> weights;
-  instance->quantizeDbIfNecessary(docName, descriptors, indices, weights);
+  // Ignore documents with no keypoints
+  if (keypoints.shape()[0] > 0) {
+    // Quantize
+    std::vector<size_t> indices;
+    std::vector<float> weights;
+    instance->quantizeDbIfNecessary(docName, descriptors, indices, weights);
 
-  // Build bag-of-words vector
-  DLOG(INFO) << "Started computing TF " + docName;
-  af::array termFreq;
-  instance->computeTFDbIfNecessary(docName, indices, weights, termFreq);
+    // Build bag-of-words vector
+    af::array termFreq;
+    instance->computeTFDbIfNecessary(docName, indices, weights, termFreq);
 
-  DLOG(INFO) << "Started migrating changes " + docName;
+    // Update database
+    instance->databaseMutex_.lock();
+    instance->database_.at(batchId).row(docId - batchId * dbParams_.batchSize) = termFreq;
+    instance->databaseMutex_.unlock();
 
-  // Update database
-  instance->databaseMutex_.lock();
-  instance->database_.row(docId) = termFreq;
-  instance->databaseMutex_.unlock();
-
-  // Add indices to inverted index and update idf
-  for (size_t i = 0; i < indices.size(); ++i) {
-    rawInvMutex->at(indices.at(i)).lock();
-    rawInvIndex->at(indices.at(i)).insert(docId);
-    rawInvDocFreq->at(indices.at(i)) += 1;
-    rawInvMutex->at(indices.at(i)).unlock();
+    // Add indices to inverted index and update idf
+    for (size_t i = 0; i < indices.size(); ++i) {
+      rawInvMutex->at(indices.at(i)).lock();
+      rawInvIndex->at(indices.at(i)).insert(docId);
+      rawInvDocFreq->at(indices.at(i)) += 1;
+      rawInvMutex->at(indices.at(i)).unlock();
+    }
   }
 
   DLOG(INFO) << "Finished " + docName;
 }
 
-void ir::IrInstance::buildDatabase() {
-  docNames_ = dbParams_.getDocuments();
-  size_t nDocs = docNames_.size();
+void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
+  const size_t &batchId,
+  const size_t &fromDocId,
+  const size_t &untilDocId,
+  std::vector< std::set<size_t> > &rawInvIndex,
+  std::vector<size_t> &rawInvDocFreq,
+  std::vector<boost::mutex> &rawInvMutex
+) {
 
   /**
    The following stuffs will be done sequentially and in parallel
@@ -240,29 +246,26 @@ void ir::IrInstance::buildDatabase() {
    */
 
   // Initialize database
-  DLOG(INFO) << "Started intializing database, nWords = " << dbParams_.nWords;
-  database_ = af::array(nDocs, dbParams_.nWords);
-  std::vector< std::set<size_t> > rawInvIndex(dbParams_.nWords);
-  std::vector<size_t> rawInvDocFreq(dbParams_.nWords);
-  std::vector<boost::mutex> rawInvMutex(dbParams_.nWords);
-  invIndex_.resize(dbParams_.nWords);
+  DLOG(INFO) << "Started intializing database #" << batchId;
+  database_.at(batchId) = af::constant(0, untilDocId - fromDocId, dbParams_.nWords);
 
   // Initialize a thread pool
   boost::thread_group threads;
   boost::asio::io_service ioService;
 
   // Initialize tasks
-  DLOG(INFO) << "Started adding tasks, nTasks = " << nDocs;
-  for (size_t i = 0; i < docNames_.size(); ++i) {
+  DLOG(INFO) << "Started adding tasks, nTasks = " << untilDocId - fromDocId;
+  for (size_t docId = fromDocId; docId < untilDocId; ++docId) {
     ioService.post(boost::bind(
                      loadDocumentTask,
                      this,
+                     batchId,
+                     docId,
                      &rawInvDocFreq,
                      &rawInvMutex,
-                     &rawInvIndex,
-                     i));
+                     &rawInvIndex));
   }
-  DLOG(INFO) << "Finished adding tasks, nTasks = " << nDocs;
+  DLOG(INFO) << "Finished adding tasks, nTasks = " << untilDocId - fromDocId;
 
   // Initialize threads
   DLOG(INFO) << "Started adding threads, nThreads = " << globalParams_.nThreads;
@@ -276,27 +279,52 @@ void ir::IrInstance::buildDatabase() {
   ioService.stop();
   DLOG(INFO) << "Finished all tasks";
 
+  DLOG(INFO) << "Started compressing database #" << batchId;
+  database_.at(batchId) = af::sparse(database_.at(batchId));
+  DLOG(INFO) << "Finished building database #" << batchId;
+}
+
+void ir::IrInstance::buildDatabase() {
+  docNames_ = dbParams_.getDocuments();
+  size_t nDocs = docNames_.size();
+
+  DLOG(INFO) << "Number of documents " << nDocs;
+
+  database_.resize((nDocs - 1) / dbParams_.batchSize + 1);
+  std::vector< std::set<size_t> > rawInvIndex(dbParams_.nWords);
+  std::vector<size_t> rawInvDocFreq(dbParams_.nWords);
+  std::vector<boost::mutex> rawInvMutex(dbParams_.nWords);
+  invIndex_.resize(dbParams_.nWords);
+
+  for (size_t batchId = 0, fromDocId = 0;
+       fromDocId < nDocs;
+       fromDocId += dbParams_.batchSize, ++batchId) {
+    size_t untilDocId = std::min(fromDocId + (size_t) dbParams_.batchSize, nDocs);
+    buildDatabaseOfBatchIfNecessary(
+      batchId,
+      fromDocId,
+      untilDocId,
+      rawInvIndex,
+      rawInvDocFreq,
+      rawInvMutex);
+  }
+
   // Compute idf
   DLOG(INFO) << "Started computing idf";
   invDocFreq_ = af::array(rawInvDocFreq.size(), rawInvDocFreq.data());
   invDocFreq_ = af::log((float) nDocs / (1 + invDocFreq_));
 
-  // Build inverted index
-  DLOG(INFO) << "Started building inverted index";
-  for (size_t i = 0; i < rawInvIndex.size(); ++i) {
-    if (rawInvIndex.at(i).size() == 0) {
-      continue;
-    }
-    size_t* indexData = new size_t[rawInvIndex.at(i).size()];
-    std::copy(rawInvIndex.at(i).begin(), rawInvIndex.at(i).end(), indexData);
-
-    invIndex_.at(i) = af::array(rawInvIndex.at(i).size(), indexData);
-  }
-
-  DLOG(INFO) << "Started compressing database";
-  database_ = af::sparse(database_);
-
-  DLOG(INFO) << "Finished building database";
+  // Build inverted index (Temporarily disabled)
+//  DLOG(INFO) << "Started building inverted index";
+//  for (size_t i = 0; i < rawInvIndex.size(); ++i) {
+//    if (rawInvIndex.at(i).size() == 0) {
+//      continue;
+//    }
+//    size_t* indexData = new size_t[rawInvIndex.at(i).size()];
+//    std::copy(rawInvIndex.at(i).begin(), rawInvIndex.at(i).end(), indexData);
+//
+//    invIndex_.at(i) = af::array(rawInvIndex.at(i).size(), indexData);
+//  }
 }
 
 void ir::IrInstance::quantize(
@@ -376,9 +404,11 @@ void ir::IrInstance::computeTF(
 }
 
 void ir::IrInstance::computeScore(const af::array &bow, std::vector<float> &scores) {
-  af::array afScores = af::matmul(database_, bow);
-  float* ptrScores = afScores.host<float>();
-  scores = std::vector<float>(ptrScores, ptrScores + afScores.dims(0));
+  for (size_t batchId = 0; batchId < database_.size(); ++batchId) {
+    af::array afScores = af::matmul(database_.at(batchId), bow);
+    float* ptrScores = afScores.host<float>();
+    scores.insert(scores.end(), ptrScores, ptrScores + afScores.dims(0));
+  }
 }
 
 std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int topK) {

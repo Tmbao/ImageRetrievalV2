@@ -28,6 +28,7 @@
 
 namespace ir {
 
+// Arrayfire does not accept unsigned long
 typedef int size_t;
 
 /**
@@ -50,7 +51,7 @@ class IrInstance {
   flann::Index< flann::L2<float> >* quantIndex_;
 
   // Bag-of-word variables
-  af::array database_;
+  std::vector<af::array> database_;
   boost::mutex databaseMutex_;
   std::vector<af::array> invIndex_;
   af::array invDocFreq_;
@@ -64,6 +65,15 @@ class IrInstance {
   void buildIndexIfNecessary();
 
   void buildDatabase();
+
+  void buildDatabaseOfBatchIfNecessary(
+    const size_t &batchId,
+    const size_t &fromDocId,
+    const size_t &untilDocId,
+    std::vector< std::set<size_t> > &rawInvIndex,
+    std::vector<size_t> &rawInvDocFreq,
+    std::vector<boost::mutex> &rawInvMutex
+  );
 
   void extractDbIfNecessary(
     const std::string &docName,
@@ -85,10 +95,11 @@ class IrInstance {
   //TODO: Update the flow to eliminate redundant tasks
   static void loadDocumentTask(
     IrInstance* &instance,
+    const size_t &batchId,
+    const size_t &docId,
     std::vector<size_t> *rawInvDocFreq,
     std::vector<boost::mutex> *rawInvMutex,
-    std::vector< std::set<size_t> > *rawInvIndex,
-    const size_t &docId);
+    std::vector< std::set<size_t> > *rawInvIndex);
 
   // Query methods
 
