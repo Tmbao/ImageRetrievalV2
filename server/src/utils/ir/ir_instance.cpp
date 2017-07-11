@@ -144,7 +144,6 @@ void ir::IrInstance::extractDbIfNecessary(
 
 void ir::IrInstance::quantizeDbIfNecessary(
   const std::string &docName,
-  boost::multi_array<float, 2> &descriptors,
   std::vector<size_t> &indices,
   std::vector<float> &weights) {
 
@@ -158,32 +157,48 @@ void ir::IrInstance::quantizeDbIfNecessary(
     load(indices, indexPath);
     load(weights, weightPath);
   } else {
-    quantize(descriptors, indices, weights);
+    // Quantize the document
+    boost::multi_array<float, 2> keypoints, descriptors;
+    extractDbIfNecessary(docName, keypoints, descriptors);
+
+    if (keypoints.size() > 0) {
+      quantize(descriptors, indices, weights);
+    }
     save(indices, indexPath);
     save(weights, weightPath);
   }
 }
 
-void ir::IrInstance::computeTFDbIfNecessary(
+void ir::IrInstance::computeTFAndIndicesDbIfNecessary(
   const std::string &docName,
-  const std::vector<size_t> &indices,
-  const std::vector<float> &weights,
+  std::vector<size_t> &indices,
   af::array &termFreq) {
 
+  std::string indexPath = dbParams_.getFullPath(docName, INDEX);
   std::string tfPath = dbParams_.getFullPath(docName, TERM_FREQUENCY);
 
-  // Check if tf exists
-  if (boost::filesystem::exists(tfPath) && !globalParams_.overwrite) {
+  // Check if tf and index exist
+  if (boost::filesystem::exists(indexPath) &&
+      boost::filesystem::exists(tfPath) &&
+      !globalParams_.overwrite) {
+    load(indices, indexPath);
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
-    computeTF(indices, weights, termFreq);
-    //TODO: Uncomment this
+    // Quantize the document
+    std::vector<float> weights;
+    quantizeDbIfNecessary(docName, indices, weights);
+
+    if (indices.size() > 0) {
+      computeTF(indices, weights, termFreq);
+    } else {
+      termFreq = af::constant(0, dbParams_.nWords);
+    }
     af::saveArray("", termFreq, tfPath.c_str());
   }
 }
 
 void ir::IrInstance::loadDocumentTask(
-  IrInstance* &instance,
+  IrInstance* instance,
   const size_t &batchId,
   const size_t &docId,
   std::vector<float> *rawInvDocFreq,
@@ -196,36 +211,25 @@ void ir::IrInstance::loadDocumentTask(
   // Make sure that all threads use a single device
   af::setDevice(0);
 
-  // Extract features
-  boost::multi_array<float, 2> keypoints, descriptors;
-  instance->extractDbIfNecessary(docName, keypoints, descriptors);
+  // Build bag-of-words vector
+  std::vector<size_t> indices;
+  af::array termFreq;
+  instance->computeTFAndIndicesDbIfNecessary(docName, indices, termFreq);
 
-  // Ignore documents with no keypoints
-  if (keypoints.shape()[0] > 0) {
-    // Quantize
-    std::vector<size_t> indices;
-    std::vector<float> weights;
-    instance->quantizeDbIfNecessary(docName, descriptors, indices, weights);
+  // Update database
+  instance->databaseMutex_.lock();
+  instance->database_.at(batchId).row(docId - batchId * dbParams_.batchSize) = termFreq;
+  instance->databaseMutex_.unlock();
 
-    // Build bag-of-words vector
-    af::array termFreq;
-    instance->computeTFDbIfNecessary(docName, indices, weights, termFreq);
-
-    // Update database
-    instance->databaseMutex_.lock();
-    instance->database_.at(batchId).row(docId - batchId * dbParams_.batchSize) = termFreq;
-    instance->databaseMutex_.unlock();
-
-    // Add indices to inverted index and update idf
-    for (size_t i = 0; i < indices.size(); ++i) {
-      rawInvMutex->at(indices.at(i)).lock();
-      rawInvIndex->at(indices.at(i)).insert(docId);
-      rawInvDocFreq->at(indices.at(i)) += 1;
-      rawInvMutex->at(indices.at(i)).unlock();
-    }
+  // Add indices to inverted index and update idf
+  for (size_t i = 0; i < indices.size(); ++i) {
+    rawInvMutex->at(indices.at(i)).lock();
+    rawInvIndex->at(indices.at(i)).insert(docId);
+    rawInvDocFreq->at(indices.at(i)) += 1;
+    rawInvMutex->at(indices.at(i)).unlock();
   }
 
-  DLOG(INFO) << "Finished " + docName;
+  DLOG(INFO) << "Finished loading document #" + std::to_string(docId) + " " + docName;
 }
 
 void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
@@ -317,6 +321,7 @@ void ir::IrInstance::buildDatabase() {
     }
   }
   invDocFreq_ = af::array(rawInvDocFreq.size(), rawInvDocFreq.data());
+  invDocFreq_ = invDocFreq_ * invDocFreq_;
 
   // Build inverted index (Temporarily disabled)
 //  DLOG(INFO) << "Started building inverted index";
@@ -412,6 +417,7 @@ void ir::IrInstance::computeScore(const af::array &bow, std::vector<float> &scor
     af::array afScores = af::matmul(database_.at(batchId), bow);
     float* ptrScores = afScores.host<float>();
     scores.insert(scores.end(), ptrScores, ptrScores + afScores.dims(0));
+    af::freeHost(ptrScores);
   }
 }
 
@@ -419,37 +425,28 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
   createInstanceIfNecessary();
 
   // Extract features from the image using perdoch's hessaff
-  DLOG(INFO) << "Started extracting features from the query";
   boost::multi_array<float, 2> keypoints, descriptors;
   hesaff::extract(image.clone(), keypoints, descriptors, true);
-  DLOG(INFO) << "Finished extracting features from the query";
 
   // Carry out quantization, using soft-assignment with `quantParams_`
-  DLOG(INFO) << "Started quantizing the features";
   std::vector<size_t> indices;
   std::vector<float> weights;
   instance_->quantize(descriptors, indices, weights);
-  DLOG(INFO) << "Finished quantizing the features";
 
-  // Build bag-of-words vector
-  DLOG(INFO) << "Started computing TF vector";
+  // Compute tf
   af::array bow;
   instance_->computeTF(indices, weights, bow);
-  DLOG(INFO) << "Finished computing TF vector";
 
   // Compute tfidf
-  DLOG(INFO) << "Started computing TFIDF vector";
   bow *= instance_->invDocFreq_;
-  bow *= instance_->invDocFreq_;
-  DLOG(INFO) << "Finished computing TFIDF vector";
 
   // Compute scores
-  DLOG(INFO) << "Started computing scores";
   std::vector<float> scores;
   instance_->computeScore(bow, scores);
-  DLOG(INFO) << "Finished computing scores";
 
   // Sort scores and return
+  std::vector<ir::IrResult> result;
+
   std::vector<size_t> docIndices(scores.size());
   std::iota(docIndices.begin(), docIndices.end(), 0);
 
@@ -460,7 +457,6 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
     return scores.at(lhs) > scores.at(rhs);
   });
 
-  std::vector<ir::IrResult> result;
   if (topK == -1) {
     for (size_t id : docIndices) {
       result.push_back(ir::IrResult(instance_->docNames_.at(id), scores.at(id)));
@@ -472,4 +468,115 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
     }
   }
   return result;
+}
+
+void ir::IrInstance::computeScore(
+  const af::array &bows,
+  std::vector< std::vector<float> > &scores) {
+
+  for (size_t batchId = 0; batchId < database_.size(); ++batchId) {
+    af::array afScores = af::matmul(database_.at(batchId), bows);
+    float* ptrScores = afScores.host<float>();
+
+    size_t batchSize = afScores.dims(0);
+    for (size_t i = 0; i < scores.size(); ++i) {
+      scores.at(i).insert(
+        scores.at(i).end(),
+        ptrScores + i * batchSize,
+        ptrScores + (i + 1) * batchSize);
+    }
+
+    af::freeHost(ptrScores);
+  }
+}
+
+void ir::IrInstance::loadQueryTask(
+  const size_t &queryId,
+  const cv::Mat* &image,
+  af::array* &bows,
+  boost::mutex* bowMutex) {
+  // Extract features from the image using perdoch's hessaff
+  boost::multi_array<float, 2> keypoints, descriptors;
+  hesaff::extract(image->clone(), keypoints, descriptors, true);
+
+  // Carry out quantization, using soft-assignment with `quantParams_`
+  std::vector<size_t> indices;
+  std::vector<float> weights;
+  instance_->quantize(descriptors, indices, weights);
+
+  // Compute tf
+  af::array tf;
+  instance_->computeTF(indices, weights, tf);
+
+  // Compute tfidf
+  tf *= instance_->invDocFreq_;
+
+  bowMutex->lock();
+  bows->col(queryId) = tf;
+  bowMutex->unlock();
+}
+
+std::vector< std::vector<ir::IrResult> > ir::IrInstance::retrieve(
+  const std::vector<cv::Mat> &images,
+  int topK) {
+
+  assert(images.size() > 0);
+  assert(images.size() <= dbParams_.batchSize);
+
+  af::array bows(dbParams_.nWords, images.size());
+  boost::mutex bowMutex;
+
+  // Initialize a thread pool
+  boost::thread_group threads;
+  boost::asio::io_service ioService;
+
+  // Initialize tasks
+  for (size_t queryId = 0; queryId < images.size(); ++queryId) {
+    ioService.post(boost::bind(
+                     loadQueryTask,
+                     queryId,
+                     &images.at(queryId),
+                     &bows,
+                     &bowMutex));
+  }
+
+  // Initialize threads
+  for (size_t i = 0; i < globalParams_.nThreads; ++i) {
+    threads.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
+  }
+
+  // Join tasks
+  threads.join_all();
+  ioService.stop();
+
+  // Compute scores
+  std::vector< std::vector<float> > scores(images.size());
+  instance_->computeScore(bows, scores);
+
+  // Sort scores and return
+  std::vector< std::vector<ir::IrResult> > results(scores.size());
+
+  std::vector<size_t> docIndices(scores.at(0).size());
+  std::iota(docIndices.begin(), docIndices.end(), 0);
+  for (size_t i = 0; i < scores.size(); ++i) {
+    std::sort(
+      docIndices.begin(),
+      docIndices.end(),
+    [&scores, i](const size_t &lhs, const size_t &rhs) -> bool {
+      return scores.at(i).at(lhs) > scores.at(i).at(rhs);
+    });
+
+    if (topK == -1) {
+      for (size_t id : docIndices) {
+        results.at(i).push_back(ir::IrResult(instance_->docNames_.at(id), scores.at(i).at(id)));
+      }
+    } else {
+      for (size_t j = 0; j < topK; ++j) {
+        size_t id = docIndices.at(j);
+        results.at(i).push_back(ir::IrResult(instance_->docNames_.at(id), scores.at(i).at(id)));
+      }
+    }
+  }
+
+  return results;
 }

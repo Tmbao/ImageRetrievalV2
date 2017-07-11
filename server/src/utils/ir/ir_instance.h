@@ -82,19 +82,17 @@ class IrInstance {
 
   void quantizeDbIfNecessary(
     const std::string &docName,
-    boost::multi_array<float, 2> &descriptors,
     std::vector<size_t> &indices,
     std::vector<float> &weights);
 
-  void computeTFDbIfNecessary(
+  void computeTFAndIndicesDbIfNecessary(
     const std::string &docName,
-    const std::vector<size_t> &indices,
-    const std::vector<float> &weights,
+    std::vector<size_t> &indices,
     af::array &termFreq);
 
   //TODO: Update the flow to eliminate redundant tasks
   static void loadDocumentTask(
-    IrInstance* &instance,
+    IrInstance* instance,
     const size_t &batchId,
     const size_t &docId,
     std::vector<float> *rawInvDocFreq,
@@ -102,6 +100,12 @@ class IrInstance {
     std::vector< std::set<size_t> > *rawInvIndex);
 
   // Query methods
+
+  static void loadQueryTask(
+    const size_t &queryId,
+    const cv::Mat* &image,
+    af::array* &bows,
+    boost::mutex* bowMutex);
 
   void quantize(
     boost::multi_array<float, 2> &descriptors,
@@ -114,8 +118,12 @@ class IrInstance {
     af::array &termFreq);
 
   void computeScore(
-    const af::array& bow,
+    const af::array &bow,
     std::vector<float> &scores);
+
+  void computeScore(
+    const af::array &bows,
+    std::vector< std::vector<float> > &scores);
 
  public:
 
@@ -129,10 +137,18 @@ class IrInstance {
   );
 
   /**
-   * Retrieves a list of simiar image in the database sorted according to
+   * Retrieves a list of simiar images in the database sorted according to
    * their score.
    */
   static std::vector<IrResult> retrieve(const cv::Mat& image, int topK = -1);
+
+  /**
+   * Retrieves lists of similar images in the database sorted according to
+   * their score.
+   */
+  static std::vector< std::vector<IrResult> > retrieve(
+    const std::vector<cv::Mat> &images,
+    int topK = -1);
 };
 
 }

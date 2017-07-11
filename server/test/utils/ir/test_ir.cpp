@@ -105,7 +105,7 @@ TEST_F(TestIR, TestIrInstance_map) {
     auto fullPath = queryParams.getFullPath(query);
     auto queryMat = cv::imread(fullPath);
     auto ranklist = ir::IrInstance::retrieve(queryMat);
-    
+
     // Verify ranklist
     ASSERT_EQ(query, ranklist.at(0).name());
     for (auto &item : ranklist) {
@@ -126,5 +126,53 @@ TEST_F(TestIR, TestIrInstance_map) {
   map /= queries.size();
 
   DLOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.8);
+  EXPECT_GT(map, 0.73);
+}
+
+TEST_F(TestIR, TestIrInstance_map_parallel) {
+  auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
+  auto queryFolder = sourceDir /
+                     boost::filesystem::path("data") /
+                     boost::filesystem::path("query");
+  auto gtFolder = sourceDir /
+                  boost::filesystem::path("data") /
+                  boost::filesystem::path("groundtruth");
+
+  ir::DatabaseParams queryParams(1000000, 100, queryFolder.string());
+
+  auto queries = queryParams.getDocuments();
+
+  std::vector<cv::Mat> queryMats;
+  for (auto &query : queries) {
+    auto fullPath = queryParams.getFullPath(query);
+    queryMats.push_back(cv::imread(fullPath));
+  }
+
+  auto ranklists = ir::IrInstance::retrieve(queryMats);
+
+  float map = 0;
+  for (size_t i = 0; i < ranklists.size(); ++i) {
+    auto &ranklist = ranklists.at(i);
+
+    // Verify ranklist
+    ASSERT_EQ(queries.at(i), ranklist.at(0).name());
+    for (auto &item : ranklist) {
+      ASSERT_FALSE(boost::math::isnan(item.score()));
+    }
+
+    auto goodSet = getGroundtruth(gtFolder, queries.at(i), "good");
+    auto okSet = getGroundtruth(gtFolder, queries.at(i), "ok");
+    auto junkSet = getGroundtruth(gtFolder, queries.at(i), "junk");
+
+    goodSet.insert(okSet.begin(), okSet.end());
+
+    auto ap = computeAP(goodSet, junkSet, ranklist);
+    map += ap;
+
+    DLOG(INFO) << "Finished evaluating " << queries.at(i) << ", AP = " << ap;
+  }
+  map /= queries.size();
+
+  DLOG(INFO) << "MAP = " << map;
+  EXPECT_GT(map, 0.73);
 }
