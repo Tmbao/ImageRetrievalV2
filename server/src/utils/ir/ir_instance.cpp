@@ -51,8 +51,7 @@ void ir::IrInstance::createInstanceIfNecessary() {
 void ir::IrInstance::createInstanceIfNecessary(
   GlobalParams globalParams,
   QuantizationParams quantParams,
-  DatabaseParams dbParams
-) {
+  DatabaseParams dbParams) {
   boost::mutex::scoped_lock scopedLock(initMutex_);
   if (instance_ == nullptr) {
     globalParams_ = globalParams;
@@ -180,7 +179,7 @@ void ir::IrInstance::computeTFAndIndicesDbIfNecessary(
   // Check if tf and index exist
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(tfPath) &&
-      !globalParams_.overwrite) {
+      !globalParams_.overwrite && false) {
     load(indices, indexPath);
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
@@ -370,10 +369,10 @@ void ir::IrInstance::quantize(
   // Fetch weights, apply radial weighting and normalize
   int* ptrIndices = indices.ptr();
   double* ptrWeights = dists.ptr();
-  
+
   termIndices = std::vector<size_t>(ptrIndices, ptrIndices + indices.rows * indices.cols);
   termWeights = std::vector<double>(ptrWeights, ptrWeights + dists.rows * dists.cols);
-  
+
   for (size_t i = 0; i < dists.rows * dists.cols; i += dists.cols) {
     double sum = 0;
     for (size_t j = 0; j < i + dists.cols; ++j) {
@@ -404,7 +403,7 @@ void ir::IrInstance::computeTF(
   // Compute tf
   double totalFreq = 0;
   for (size_t index : uniqueIndices) {
-    rawTermFreq.at(index) = sqrt(rawTermFreq.at(index) / rawFreq.at(index));
+    rawTermFreq.at(index) /= sqrt(rawFreq.at(index));
     totalFreq += rawTermFreq.at(index);
   }
   for (size_t index : uniqueIndices) {

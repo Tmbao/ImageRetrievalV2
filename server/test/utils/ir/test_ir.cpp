@@ -87,6 +87,10 @@ float computeAP(
   return ap;
 }
 
+TEST_F(TestIR, TestIrInstance_init) {
+  // This function is intentionally left blank.
+}
+
 TEST_F(TestIR, TestIrInstance_map) {
   auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
   auto queryFolder = sourceDir /
@@ -126,7 +130,7 @@ TEST_F(TestIR, TestIrInstance_map) {
   map /= queries.size();
 
   LOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.76);
+  EXPECT_GT(map, 0.77);
 }
 
 TEST_F(TestIR, TestIrInstance_map_parallel) {
@@ -174,5 +178,5 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
   map /= queries.size();
 
   LOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.76);
+  EXPECT_GT(map, 0.77);
 }
