@@ -201,8 +201,7 @@ void ir::IrInstance::loadDocumentTask(
   const size_t &batchId,
   const size_t &docId,
   std::vector<double> *rawInvDocFreq,
-  std::vector<boost::mutex> *rawInvMutex,
-  std::vector< std::set<size_t> > *rawInvIndex) {
+  std::vector<boost::mutex> *rawInvMutex) {
 
   std::string docName = instance->docNames_.at(docId);
   LOG(INFO) << "Started loading document #" + std::to_string(docId) + " " + docName;
@@ -223,7 +222,6 @@ void ir::IrInstance::loadDocumentTask(
   // Add indices to inverted index and update idf
   for (size_t i = 0; i < indices.size(); ++i) {
     rawInvMutex->at(indices.at(i)).lock();
-    rawInvIndex->at(indices.at(i)).insert(docId);
     rawInvDocFreq->at(indices.at(i)) += 1;
     rawInvMutex->at(indices.at(i)).unlock();
   }
@@ -235,7 +233,6 @@ void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
   const size_t &batchId,
   const size_t &fromDocId,
   const size_t &untilDocId,
-  std::vector< std::set<size_t> > &rawInvIndex,
   std::vector<double> &rawInvDocFreq,
   std::vector<boost::mutex> &rawInvMutex) {
 
@@ -244,19 +241,16 @@ void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
    - Extract features (hesaff)
    - Quantize (quantize)
    - Compute tf (computeTF)
-   - Add features to inverted index (invIndex_)
    - Compute idf (invDocFreq_)
    */
 
-  // Initialize database
-  LOG(INFO) << "Started intializing database #" << batchId;
+  LOG(INFO) << "Started building database #" << batchId;
   database_.at(batchId) = af::constant(0, untilDocId - fromDocId, dbParams_.nWords, f64);
 
   // Initialize a thread pool
   boost::thread_group threads;
   boost::asio::io_service ioService;
 
-  // Initialize tasks
   LOG(INFO) << "Started adding tasks, nTasks = " << untilDocId - fromDocId;
   for (size_t docId = fromDocId; docId < untilDocId; ++docId) {
     ioService.post(boost::bind(
@@ -265,19 +259,16 @@ void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
                      batchId,
                      docId,
                      &rawInvDocFreq,
-                     &rawInvMutex,
-                     &rawInvIndex));
+                     &rawInvMutex));
   }
   LOG(INFO) << "Finished adding tasks, nTasks = " << untilDocId - fromDocId;
 
-  // Initialize threads
   LOG(INFO) << "Started adding threads, nThreads = " << globalParams_.nThreads;
   for (size_t i = 0; i < globalParams_.nThreads; ++i) {
     threads.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
   }
   LOG(INFO) << "Finished adding threads, nThreads = " << globalParams_.nThreads;
 
-  // Join tasks
   threads.join_all();
   ioService.stop();
   LOG(INFO) << "Finished all tasks";
@@ -291,13 +282,11 @@ void ir::IrInstance::buildDatabase() {
   docNames_ = dbParams_.getDocuments();
   size_t nDocs = docNames_.size();
 
-  LOG(INFO) << "Number of documents " << nDocs;
+  LOG(INFO) << "Number of documents = " << nDocs;
 
   database_.resize((nDocs - 1) / dbParams_.batchSize + 1);
-  std::vector< std::set<size_t> > rawInvIndex(dbParams_.nWords);
   std::vector<double> rawInvDocFreq(dbParams_.nWords);
   std::vector<boost::mutex> rawInvMutex(dbParams_.nWords);
-  invIndex_.resize(dbParams_.nWords);
 
   for (size_t batchId = 0, fromDocId = 0;
        fromDocId < nDocs;
@@ -307,7 +296,6 @@ void ir::IrInstance::buildDatabase() {
       batchId,
       fromDocId,
       untilDocId,
-      rawInvIndex,
       rawInvDocFreq,
       rawInvMutex);
   }
@@ -322,18 +310,6 @@ void ir::IrInstance::buildDatabase() {
   invDocFreq_ = af::array(rawInvDocFreq.size(), rawInvDocFreq.data());
   invDocFreq_ = invDocFreq_ * invDocFreq_;
   LOG(INFO) << "Finished computing idf";
-
-  // Build inverted index (Temporarily disabled)
-//  LOG(INFO) << "Started building inverted index";
-//  for (size_t i = 0; i < rawInvIndex.size(); ++i) {
-//    if (rawInvIndex.at(i).size() == 0) {
-//      continue;
-//    }
-//    size_t* indexData = new size_t[rawInvIndex.at(i).size()];
-//    std::copy(rawInvIndex.at(i).begin(), rawInvIndex.at(i).end(), indexData);
-//
-//    invIndex_.at(i) = af::array(rawInvIndex.at(i).size(), indexData);
-//  }
 }
 
 void ir::IrInstance::quantize(

@@ -53,7 +53,6 @@ class IrInstance {
   // Bag-of-word variables
   std::vector<af::array> database_;
   boost::mutex databaseMutex_;
-  std::vector<af::array> invIndex_;
   af::array invDocFreq_;
 
   IrInstance();
@@ -70,10 +69,8 @@ class IrInstance {
     const size_t &batchId,
     const size_t &fromDocId,
     const size_t &untilDocId,
-    std::vector< std::set<size_t> > &rawInvIndex,
     std::vector<double> &rawInvDocFreq,
-    std::vector<boost::mutex> &rawInvMutex
-  );
+    std::vector<boost::mutex> &rawInvMutex);
 
   void extractDbIfNecessary(
     const std::string &docName,
@@ -96,8 +93,7 @@ class IrInstance {
     const size_t &batchId,
     const size_t &docId,
     std::vector<double> *rawInvDocFreq,
-    std::vector<boost::mutex> *rawInvMutex,
-    std::vector< std::set<size_t> > *rawInvIndex);
+    std::vector<boost::mutex> *rawInvMutex);
 
   // Query methods
 
