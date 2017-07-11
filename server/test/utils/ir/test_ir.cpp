@@ -125,8 +125,8 @@ TEST_F(TestIR, TestIrInstance_map) {
   }
   map /= queries.size();
 
-  DLOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.73);
+  LOG(INFO) << "MAP = " << map;
+  EXPECT_GT(map, 0.76);
 }
 
 TEST_F(TestIR, TestIrInstance_map_parallel) {
@@ -173,6 +173,6 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
   }
   map /= queries.size();
 
-  DLOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.73);
+  LOG(INFO) << "MAP = " << map;
+  EXPECT_GT(map, 0.76);
 }

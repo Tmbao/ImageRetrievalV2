@@ -95,34 +95,34 @@ void load(boost::multi_array<T, N> &data, const std::string &filename) {
 }
 
 void ir::IrInstance::buildIndexIfNecessary() {
-  DLOG(INFO) << "Started reading codebook file";
-  flann::Matrix<float> codebook;
+  LOG(INFO) << "Started reading codebook file";
+  flann::Matrix<double> codebook;
   flann::load_from_file(
     codebook,
     quantParams_.codebookFile,
     quantParams_.codebookName);
-  DLOG(INFO) << "Finished reading codebook file";
+  LOG(INFO) << "Finished reading codebook file";
 
-  DLOG(INFO) << "Started creating index";
+  LOG(INFO) << "Started creating index";
   flann::IndexParams* indexParams;
   if (!globalParams_.overwrite && boost::filesystem::exists(quantParams_.indexFile)) {
     indexParams = new flann::SavedIndexParams(quantParams_.indexFile);
   } else {
     indexParams = new flann::KDTreeIndexParams(quantParams_.nTrees);
   }
-  DLOG(INFO) << "Finished creating index";
+  LOG(INFO) << "Finished creating index";
 
-  DLOG(INFO) << "Started constructing KDTree";
-  quantIndex_ = new flann::Index< flann::L2<float> >(codebook, *indexParams);
+  LOG(INFO) << "Started constructing KDTree";
+  quantIndex_ = new flann::Index< flann::L2<double> >(codebook, *indexParams);
   quantIndex_->buildIndex();
   quantIndex_->save(quantParams_.indexFile);
-  DLOG(INFO) << "Finished constructing KDTree";
+  LOG(INFO) << "Finished constructing KDTree";
 }
 
 void ir::IrInstance::extractDbIfNecessary(
   const std::string &docName,
-  boost::multi_array<float, 2> &keypoints,
-  boost::multi_array<float, 2> &descriptors) {
+  boost::multi_array<double, 2> &keypoints,
+  boost::multi_array<double, 2> &descriptors) {
 
   std::string imagePath = dbParams_.getFullPath(docName, IMAGE);
   std::string descPath = dbParams_.getFullPath(docName, DESCRIPTOR);
@@ -145,7 +145,7 @@ void ir::IrInstance::extractDbIfNecessary(
 void ir::IrInstance::quantizeDbIfNecessary(
   const std::string &docName,
   std::vector<size_t> &indices,
-  std::vector<float> &weights) {
+  std::vector<double> &weights) {
 
   std::string indexPath = dbParams_.getFullPath(docName, INDEX);
   std::string weightPath = dbParams_.getFullPath(docName, WEIGHT);
@@ -158,7 +158,7 @@ void ir::IrInstance::quantizeDbIfNecessary(
     load(weights, weightPath);
   } else {
     // Quantize the document
-    boost::multi_array<float, 2> keypoints, descriptors;
+    boost::multi_array<double, 2> keypoints, descriptors;
     extractDbIfNecessary(docName, keypoints, descriptors);
 
     if (keypoints.size() > 0) {
@@ -185,13 +185,13 @@ void ir::IrInstance::computeTFAndIndicesDbIfNecessary(
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
     // Quantize the document
-    std::vector<float> weights;
+    std::vector<double> weights;
     quantizeDbIfNecessary(docName, indices, weights);
 
     if (indices.size() > 0) {
       computeTF(indices, weights, termFreq);
     } else {
-      termFreq = af::constant(0, dbParams_.nWords);
+      termFreq = af::constant(0, dbParams_.nWords, f64);
     }
     af::saveArray("", termFreq, tfPath.c_str());
   }
@@ -201,12 +201,12 @@ void ir::IrInstance::loadDocumentTask(
   IrInstance* instance,
   const size_t &batchId,
   const size_t &docId,
-  std::vector<float> *rawInvDocFreq,
+  std::vector<double> *rawInvDocFreq,
   std::vector<boost::mutex> *rawInvMutex,
   std::vector< std::set<size_t> > *rawInvIndex) {
 
   std::string docName = instance->docNames_.at(docId);
-  DLOG(INFO) << "Started loading document #" + std::to_string(docId) + " " + docName;
+  LOG(INFO) << "Started loading document #" + std::to_string(docId) + " " + docName;
 
   // Make sure that all threads use a single device
   af::setDevice(0);
@@ -229,7 +229,7 @@ void ir::IrInstance::loadDocumentTask(
     rawInvMutex->at(indices.at(i)).unlock();
   }
 
-  DLOG(INFO) << "Finished loading document #" + std::to_string(docId) + " " + docName;
+  LOG(INFO) << "Finished loading document #" + std::to_string(docId) + " " + docName;
 }
 
 void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
@@ -237,7 +237,7 @@ void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
   const size_t &fromDocId,
   const size_t &untilDocId,
   std::vector< std::set<size_t> > &rawInvIndex,
-  std::vector<float> &rawInvDocFreq,
+  std::vector<double> &rawInvDocFreq,
   std::vector<boost::mutex> &rawInvMutex) {
 
   /**
@@ -250,15 +250,15 @@ void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
    */
 
   // Initialize database
-  DLOG(INFO) << "Started intializing database #" << batchId;
-  database_.at(batchId) = af::constant(0, untilDocId - fromDocId, dbParams_.nWords);
+  LOG(INFO) << "Started intializing database #" << batchId;
+  database_.at(batchId) = af::constant(0, untilDocId - fromDocId, dbParams_.nWords, f64);
 
   // Initialize a thread pool
   boost::thread_group threads;
   boost::asio::io_service ioService;
 
   // Initialize tasks
-  DLOG(INFO) << "Started adding tasks, nTasks = " << untilDocId - fromDocId;
+  LOG(INFO) << "Started adding tasks, nTasks = " << untilDocId - fromDocId;
   for (size_t docId = fromDocId; docId < untilDocId; ++docId) {
     ioService.post(boost::bind(
                      loadDocumentTask,
@@ -269,34 +269,34 @@ void ir::IrInstance::buildDatabaseOfBatchIfNecessary(
                      &rawInvMutex,
                      &rawInvIndex));
   }
-  DLOG(INFO) << "Finished adding tasks, nTasks = " << untilDocId - fromDocId;
+  LOG(INFO) << "Finished adding tasks, nTasks = " << untilDocId - fromDocId;
 
   // Initialize threads
-  DLOG(INFO) << "Started adding threads, nThreads = " << globalParams_.nThreads;
+  LOG(INFO) << "Started adding threads, nThreads = " << globalParams_.nThreads;
   for (size_t i = 0; i < globalParams_.nThreads; ++i) {
     threads.create_thread(boost::bind(&boost::asio::io_service::run, &ioService));
   }
-  DLOG(INFO) << "Finished adding threads, nThreads = " << globalParams_.nThreads;
+  LOG(INFO) << "Finished adding threads, nThreads = " << globalParams_.nThreads;
 
   // Join tasks
   threads.join_all();
   ioService.stop();
-  DLOG(INFO) << "Finished all tasks";
+  LOG(INFO) << "Finished all tasks";
 
-  DLOG(INFO) << "Started compressing database #" << batchId;
+  LOG(INFO) << "Started compressing database #" << batchId;
   database_.at(batchId) = af::sparse(database_.at(batchId));
-  DLOG(INFO) << "Finished building database #" << batchId;
+  LOG(INFO) << "Finished building database #" << batchId;
 }
 
 void ir::IrInstance::buildDatabase() {
   docNames_ = dbParams_.getDocuments();
   size_t nDocs = docNames_.size();
 
-  DLOG(INFO) << "Number of documents " << nDocs;
+  LOG(INFO) << "Number of documents " << nDocs;
 
   database_.resize((nDocs - 1) / dbParams_.batchSize + 1);
   std::vector< std::set<size_t> > rawInvIndex(dbParams_.nWords);
-  std::vector<float> rawInvDocFreq(dbParams_.nWords);
+  std::vector<double> rawInvDocFreq(dbParams_.nWords);
   std::vector<boost::mutex> rawInvMutex(dbParams_.nWords);
   invIndex_.resize(dbParams_.nWords);
 
@@ -314,7 +314,7 @@ void ir::IrInstance::buildDatabase() {
   }
 
   // Compute idf
-  DLOG(INFO) << "Started computing idf";
+  LOG(INFO) << "Started computing idf";
   for (size_t i = 0; i < rawInvDocFreq.size(); ++i) {
     if (rawInvDocFreq.at(i) > 0) {
       rawInvDocFreq.at(i) = log(nDocs / rawInvDocFreq.at(i));
@@ -322,9 +322,10 @@ void ir::IrInstance::buildDatabase() {
   }
   invDocFreq_ = af::array(rawInvDocFreq.size(), rawInvDocFreq.data());
   invDocFreq_ = invDocFreq_ * invDocFreq_;
+  LOG(INFO) << "Finished computing idf";
 
   // Build inverted index (Temporarily disabled)
-//  DLOG(INFO) << "Started building inverted index";
+//  LOG(INFO) << "Started building inverted index";
 //  for (size_t i = 0; i < rawInvIndex.size(); ++i) {
 //    if (rawInvIndex.at(i).size() == 0) {
 //      continue;
@@ -337,11 +338,11 @@ void ir::IrInstance::buildDatabase() {
 }
 
 void ir::IrInstance::quantize(
-  boost::multi_array<float, 2> &descriptors,
+  boost::multi_array<double, 2> &descriptors,
   std::vector<size_t> &termIndices,
-  std::vector<float> &termWeights) {
+  std::vector<double> &termWeights) {
 
-  flann::Matrix<float> queries(
+  flann::Matrix<double> queries(
     descriptors.data(),
     descriptors.shape()[0],
     descriptors.shape()[1]);
@@ -351,8 +352,8 @@ void ir::IrInstance::quantize(
     descriptors.shape()[0],
     quantParams_.knn);
 
-  flann::Matrix<float> dists(
-    new float[descriptors.shape()[0] * quantParams_.knn],
+  flann::Matrix<double> dists(
+    new double[descriptors.shape()[0] * quantParams_.knn],
     descriptors.shape()[0],
     quantParams_.knn);
 
@@ -366,32 +367,32 @@ void ir::IrInstance::quantize(
     quantParams_.knn,
     searchParams);
 
-  // Fetch indices
-  af::array afIndices(indices.rows, indices.cols, indices.ptr());
-
   // Fetch weights, apply radial weighting and normalize
-  af::array afWeights(dists.rows, dists.cols, dists.ptr());
-  afWeights = af::exp(-afWeights / (2 * quantParams_.deltaSqr));
-  afWeights = afWeights / af::tile(af::sum(afWeights, 1), 1, afWeights.dims(1));
-
-  // Flatten
-  afIndices = af::flat(afIndices);
-  afWeights = af::flat(afWeights);
-
-  // Copy back to vector
-  int* ptrIndices = afIndices.host<int>();
-  float* ptrWeights = afWeights.host<float>();
-  termIndices = std::vector<size_t>(ptrIndices, ptrIndices + afIndices.dims(0));
-  termWeights = std::vector<float>(ptrWeights, ptrWeights + afWeights.dims(0));
+  int* ptrIndices = indices.ptr();
+  double* ptrWeights = dists.ptr();
+  
+  termIndices = std::vector<size_t>(ptrIndices, ptrIndices + indices.rows * indices.cols);
+  termWeights = std::vector<double>(ptrWeights, ptrWeights + dists.rows * dists.cols);
+  
+  for (size_t i = 0; i < dists.rows * dists.cols; i += dists.cols) {
+    double sum = 0;
+    for (size_t j = 0; j < i + dists.cols; ++j) {
+      termWeights.at(j) = exp(-termWeights.at(j) / (2 * quantParams_.deltaSqr));
+      sum += termWeights.at(j);
+    }
+    for (size_t j = 0; j < i + dists.cols; ++j) {
+      termWeights.at(j) /= sum;
+    }
+  }
 }
 
 void ir::IrInstance::computeTF(
   const std::vector<size_t> &indices,
-  const std::vector<float> &weights,
+  const std::vector<double> &weights,
   af::array &termFreq) {
 
   // Join indices and weights
-  std::vector<float> rawTermFreq(dbParams_.nWords, 0);
+  std::vector<double> rawTermFreq(dbParams_.nWords, 0);
   std::vector<size_t> rawFreq(dbParams_.nWords, 0);
   std::set<size_t> uniqueIndices;
   for (size_t i = 0; i < indices.size(); ++i) {
@@ -401,21 +402,21 @@ void ir::IrInstance::computeTF(
   }
 
   // Compute tf
-  float totalFreq = 0;
+  double totalFreq = 0;
   for (size_t index : uniqueIndices) {
     rawTermFreq.at(index) = sqrt(rawTermFreq.at(index) / rawFreq.at(index));
     totalFreq += rawTermFreq.at(index);
   }
   for (size_t index : uniqueIndices) {
-    rawTermFreq.at(index) = rawTermFreq.at(index) / totalFreq;
+    rawTermFreq.at(index) = sqrt(rawTermFreq.at(index) / totalFreq);
   }
   termFreq = af::array(rawTermFreq.size(), rawTermFreq.data());
 }
 
-void ir::IrInstance::computeScore(const af::array &bow, std::vector<float> &scores) {
+void ir::IrInstance::computeScore(const af::array &bow, std::vector<double> &scores) {
   for (size_t batchId = 0; batchId < database_.size(); ++batchId) {
     af::array afScores = af::matmul(database_.at(batchId), bow);
-    float* ptrScores = afScores.host<float>();
+    double* ptrScores = afScores.host<double>();
     scores.insert(scores.end(), ptrScores, ptrScores + afScores.dims(0));
     af::freeHost(ptrScores);
   }
@@ -425,12 +426,12 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
   createInstanceIfNecessary();
 
   // Extract features from the image using perdoch's hessaff
-  boost::multi_array<float, 2> keypoints, descriptors;
+  boost::multi_array<double, 2> keypoints, descriptors;
   hesaff::extract(image.clone(), keypoints, descriptors, true);
 
   // Carry out quantization, using soft-assignment with `quantParams_`
   std::vector<size_t> indices;
-  std::vector<float> weights;
+  std::vector<double> weights;
   instance_->quantize(descriptors, indices, weights);
 
   // Compute tf
@@ -441,7 +442,7 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
   bow *= instance_->invDocFreq_;
 
   // Compute scores
-  std::vector<float> scores;
+  std::vector<double> scores;
   instance_->computeScore(bow, scores);
 
   // Sort scores and return
@@ -472,11 +473,11 @@ std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int top
 
 void ir::IrInstance::computeScore(
   const af::array &bows,
-  std::vector< std::vector<float> > &scores) {
+  std::vector< std::vector<double> > &scores) {
 
   for (size_t batchId = 0; batchId < database_.size(); ++batchId) {
     af::array afScores = af::matmul(database_.at(batchId), bows);
-    float* ptrScores = afScores.host<float>();
+    double* ptrScores = afScores.host<double>();
 
     size_t batchSize = afScores.dims(0);
     for (size_t i = 0; i < scores.size(); ++i) {
@@ -496,12 +497,12 @@ void ir::IrInstance::loadQueryTask(
   af::array* &bows,
   boost::mutex* bowMutex) {
   // Extract features from the image using perdoch's hessaff
-  boost::multi_array<float, 2> keypoints, descriptors;
+  boost::multi_array<double, 2> keypoints, descriptors;
   hesaff::extract(image->clone(), keypoints, descriptors, true);
 
   // Carry out quantization, using soft-assignment with `quantParams_`
   std::vector<size_t> indices;
-  std::vector<float> weights;
+  std::vector<double> weights;
   instance_->quantize(descriptors, indices, weights);
 
   // Compute tf
@@ -523,7 +524,7 @@ std::vector< std::vector<ir::IrResult> > ir::IrInstance::retrieve(
   assert(images.size() > 0);
   assert(images.size() <= dbParams_.batchSize);
 
-  af::array bows(dbParams_.nWords, images.size());
+  af::array bows(dbParams_.nWords, images.size(), f64);
   boost::mutex bowMutex;
 
   // Initialize a thread pool
@@ -550,7 +551,7 @@ std::vector< std::vector<ir::IrResult> > ir::IrInstance::retrieve(
   ioService.stop();
 
   // Compute scores
-  std::vector< std::vector<float> > scores(images.size());
+  std::vector< std::vector<double> > scores(images.size());
   instance_->computeScore(bows, scores);
 
   // Sort scores and return

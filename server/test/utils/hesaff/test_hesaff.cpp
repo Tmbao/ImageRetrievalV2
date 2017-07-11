@@ -17,7 +17,7 @@ TEST(TestHesaff, TestHesaff_ouput) {
 
   // Get output from hesaff
   auto img = cv::imread(imageFile.string());
-  boost::multi_array<float, 2> kps, descs;
+  boost::multi_array<double, 2> kps, descs;
   hesaff::extract(img, kps, descs);
 
   DLOG(INFO) << "Keypoint shape: " << kps.shape();
@@ -28,8 +28,8 @@ TEST(TestHesaff, TestHesaff_ouput) {
   size_t nDims, nFeats;
   ifs >> nDims >> nFeats;
 
-  boost::multi_array<float, 2> expKps(boost::extents[nFeats][5]);
-  boost::multi_array<float, 2> expDescs(boost::extents[nFeats][nDims]);
+  boost::multi_array<double, 2> expKps(boost::extents[nFeats][5]);
+  boost::multi_array<double, 2> expDescs(boost::extents[nFeats][nDims]);
   for (size_t i = 0; i < nFeats; ++i) {
     float u, v, a, b, c;
     ifs >> u >> v >> a >> b >> c;

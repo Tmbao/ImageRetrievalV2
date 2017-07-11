@@ -93,7 +93,7 @@ struct AffineHessianDetector : public HessianDetector, AffineShape, HessianKeypo
     }
   }
 
-  void exportKeypoints(boost::multi_array<float, 2> &kps) {
+  void exportKeypoints(boost::multi_array<double, 2> &kps) {
     kps.resize(boost::extents[keys.size()][5]);
     for (size_t i = 0; i < keys.size(); i++) {
       Keypoint &k = keys[i];
@@ -116,16 +116,16 @@ struct AffineHessianDetector : public HessianDetector, AffineShape, HessianKeypo
     }
   }
 
-  void exportDescriptors(boost::multi_array<float, 2> &drs, bool rootSift) {
+  void exportDescriptors(boost::multi_array<double, 2> &drs, bool rootSift) {
     drs.resize(boost::extents[keys.size()][128]);
     for (size_t i = 0; i < keys.size(); i++) {
       Keypoint &k = keys[i];
-      float sum = 0;
+      double sum = 0;
       for (size_t j = 0; j < 128; j++) {
-        sum += float(k.desc[j]);
+        sum += double(k.desc[j]);
       }
       for (size_t j = 0; j < 128; j++) {
-        drs[i][j] = sqrt(float(k.desc[j]) / sum);
+        drs[i][j] = sqrt(double(k.desc[j]) / sum);
       }
     }
   }
@@ -134,8 +134,8 @@ struct AffineHessianDetector : public HessianDetector, AffineShape, HessianKeypo
 
 void extract(
   Mat src,
-  boost::multi_array<float, 2>& keypoints,
-  boost::multi_array<float, 2>& descriptors,
+  boost::multi_array<double, 2>& keypoints,
+  boost::multi_array<double, 2>& descriptors,
   bool rootSift = false) {
   Mat image(src.rows, src.cols, CV_32FC1, Scalar(0));
 

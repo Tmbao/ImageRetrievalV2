@@ -48,7 +48,7 @@ class IrInstance {
   std::vector<std::string> docNames_;
 
   // Quantization variables
-  flann::Index< flann::L2<float> >* quantIndex_;
+  flann::Index< flann::L2<double> >* quantIndex_;
 
   // Bag-of-word variables
   std::vector<af::array> database_;
@@ -71,19 +71,19 @@ class IrInstance {
     const size_t &fromDocId,
     const size_t &untilDocId,
     std::vector< std::set<size_t> > &rawInvIndex,
-    std::vector<float> &rawInvDocFreq,
+    std::vector<double> &rawInvDocFreq,
     std::vector<boost::mutex> &rawInvMutex
   );
 
   void extractDbIfNecessary(
     const std::string &docName,
-    boost::multi_array<float, 2> &keypoints,
-    boost::multi_array<float, 2> &descriptors);
+    boost::multi_array<double, 2> &keypoints,
+    boost::multi_array<double, 2> &descriptors);
 
   void quantizeDbIfNecessary(
     const std::string &docName,
     std::vector<size_t> &indices,
-    std::vector<float> &weights);
+    std::vector<double> &weights);
 
   void computeTFAndIndicesDbIfNecessary(
     const std::string &docName,
@@ -95,7 +95,7 @@ class IrInstance {
     IrInstance* instance,
     const size_t &batchId,
     const size_t &docId,
-    std::vector<float> *rawInvDocFreq,
+    std::vector<double> *rawInvDocFreq,
     std::vector<boost::mutex> *rawInvMutex,
     std::vector< std::set<size_t> > *rawInvIndex);
 
@@ -108,22 +108,22 @@ class IrInstance {
     boost::mutex* bowMutex);
 
   void quantize(
-    boost::multi_array<float, 2> &descriptors,
+    boost::multi_array<double, 2> &descriptors,
     std::vector<size_t> &termIndices,
-    std::vector<float> &termWeights);
+    std::vector<double> &termWeights);
 
   void computeTF(
     const std::vector<size_t> &indices,
-    const std::vector<float> &weights,
+    const std::vector<double> &weights,
     af::array &termFreq);
 
   void computeScore(
     const af::array &bow,
-    std::vector<float> &scores);
+    std::vector<double> &scores);
 
   void computeScore(
     const af::array &bows,
-    std::vector< std::vector<float> > &scores);
+    std::vector< std::vector<double> > &scores);
 
  public:
 
