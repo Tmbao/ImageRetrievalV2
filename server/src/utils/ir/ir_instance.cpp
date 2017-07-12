@@ -152,7 +152,7 @@ void ir::IrInstance::quantizeDbIfNecessary(
   // Check if quantization data exists
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(weightPath) &&
-      !globalParams_.overwrite) {
+      !globalParams_.overwrite && false) {
     load(indices, indexPath);
     load(weights, weightPath);
   } else {
@@ -179,7 +179,7 @@ void ir::IrInstance::computeTFAndIndicesDbIfNecessary(
   // Check if tf and index exist
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(tfPath) &&
-      !globalParams_.overwrite) {
+      !globalParams_.overwrite && false) {
     load(indices, indexPath);
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
@@ -349,13 +349,13 @@ void ir::IrInstance::quantize(
   termIndices = std::vector<size_t>(ptrIndices, ptrIndices + indices.rows * indices.cols);
   termWeights = std::vector<double>(ptrWeights, ptrWeights + dists.rows * dists.cols);
 
-  for (size_t i = 0; i < dists.rows * dists.cols; i += dists.cols) {
+  for (size_t i = 0; i < dists.rows; ++i) {
     double sum = 0;
-    for (size_t j = 0; j < i + dists.cols; ++j) {
+    for (size_t j = i; j < termWeights.size(); j += dists.rows) {
       termWeights.at(j) = exp(-termWeights.at(j) / (2 * quantParams_.deltaSqr));
       sum += termWeights.at(j);
     }
-    for (size_t j = 0; j < i + dists.cols; ++j) {
+    for (size_t j = i; j < termWeights.size(); j += dists.rows) {
       termWeights.at(j) /= sum;
     }
   }

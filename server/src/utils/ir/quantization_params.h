@@ -21,7 +21,7 @@ struct QuantizationParams {
   size_t nTrees;
   size_t knn;
   size_t nChecks;
-  float deltaSqr;
+  double deltaSqr;
   std::string codebookFile;
   std::string codebookName;
   std::string indexFile;
@@ -30,7 +30,7 @@ struct QuantizationParams {
     size_t nTrees = 8,
     size_t knn = 3,
     size_t nChecks = 800,
-    float deltaSqr = 6250,
+    double deltaSqr = 6250,
     std::string codebookFile = "",
     std::string codebookName = "",
     std::string indexFile = ""):
