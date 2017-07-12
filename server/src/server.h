@@ -17,10 +17,10 @@ class server: public ngrest::Service {
    * This method returns a token which will be used to get
    * the result once it is available.
    */
-  // *location: /processVideo
+  // *location: /processImage
   // *method: POST
   //
-  std::string processVideo(const std::string& path);
+  std::string processImage(const std::string& path);
 };
 
 

@@ -30,19 +30,16 @@ enum CacheTag {
  */
 struct DatabaseParams {
   size_t nWords;
-  size_t batchSize;
   std::string imageFolder;
   std::string cacheFolder;
   std::string dbFolder;
 
   DatabaseParams(
     size_t nWords = 1000000,
-    size_t batchSize = 100,
     std::string imageFolder = "",
     std::string cacheFolder = "",
     std::string dbFolder = ""):
     nWords(nWords),
-    batchSize(batchSize),
     imageFolder(imageFolder),
     cacheFolder(cacheFolder),
     dbFolder(dbFolder) {

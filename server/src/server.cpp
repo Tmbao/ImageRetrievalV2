@@ -3,10 +3,9 @@
 
 #include "server.h"
 
-//#include "utils/ir/ir_instance.h"
-#include "utils/mask/mask_impl.h"
+#include "utils/taskmgr/task_manager.h"
 
 
-std::string server::processVideo(const std::string& path) {
+std::string server::processImage(const std::string& path) {
   return "";
 }

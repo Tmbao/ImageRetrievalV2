@@ -179,7 +179,7 @@ void ir::IrInstance::computeTFAndIndicesDbIfNecessary(
   // Check if tf and index exist
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(tfPath) &&
-      !globalParams_.overwrite && false) {
+      !globalParams_.overwrite) {
     load(indices, indexPath);
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
@@ -216,7 +216,7 @@ void ir::IrInstance::loadDocumentTask(
 
   // Update database
   instance->databaseMutex_.lock();
-  instance->database_.at(batchId).row(docId - batchId * dbParams_.batchSize) = termFreq;
+  instance->database_.at(batchId).row(docId - batchId * globalParams_.batchSize) = termFreq;
   instance->databaseMutex_.unlock();
 
   // Add indices to inverted index and update idf
@@ -284,14 +284,14 @@ void ir::IrInstance::buildDatabase() {
 
   LOG(INFO) << "Number of documents = " << nDocs;
 
-  database_.resize((nDocs - 1) / dbParams_.batchSize + 1);
+  database_.resize((nDocs - 1) / globalParams_.batchSize + 1);
   std::vector<double> rawInvDocFreq(dbParams_.nWords);
   std::vector<boost::mutex> rawInvMutex(dbParams_.nWords);
 
   for (size_t batchId = 0, fromDocId = 0;
        fromDocId < nDocs;
-       fromDocId += dbParams_.batchSize, ++batchId) {
-    size_t untilDocId = std::min(fromDocId + (size_t) dbParams_.batchSize, nDocs);
+       fromDocId += globalParams_.batchSize, ++batchId) {
+    size_t untilDocId = std::min(fromDocId + (size_t) globalParams_.batchSize, nDocs);
     buildDatabaseOfBatchIfNecessary(
       batchId,
       fromDocId,
@@ -497,7 +497,7 @@ std::vector< std::vector<ir::IrResult> > ir::IrInstance::retrieve(
   int topK) {
 
   assert(images.size() > 0);
-  assert(images.size() <= dbParams_.batchSize);
+  assert(images.size() <= globalParams_.batchSize);
 
   af::array bows(dbParams_.nWords, images.size(), f64);
   boost::mutex bowMutex;
