@@ -152,7 +152,7 @@ void ir::IrInstance::quantizeDbIfNecessary(
   // Check if quantization data exists
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(weightPath) &&
-      !globalParams_.overwrite && false) {
+      !globalParams_.overwrite) {
     load(indices, indexPath);
     load(weights, weightPath);
   } else {
@@ -179,7 +179,7 @@ void ir::IrInstance::computeTFAndIndicesDbIfNecessary(
   // Check if tf and index exist
   if (boost::filesystem::exists(indexPath) &&
       boost::filesystem::exists(tfPath) &&
-      !globalParams_.overwrite && false) {
+      !globalParams_.overwrite) {
     load(indices, indexPath);
     termFreq = af::readArray(tfPath.c_str(), "");
   } else {
