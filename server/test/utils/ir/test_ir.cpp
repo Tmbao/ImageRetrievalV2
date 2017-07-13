@@ -106,7 +106,6 @@ TEST_F(TestIR, TestIrInstance_init) {
 }
 
 TEST_F(TestIR, TestIrInstance_map) {
-  return;
   auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
   auto queryFolder = sourceDir /
                      boost::filesystem::path("data") /
@@ -129,7 +128,6 @@ TEST_F(TestIR, TestIrInstance_map) {
     auto ranklist = ir::IrInstance::retrieve(queryMat);
 
     // Verify ranklist
-    ASSERT_EQ(query, ranklist.at(0).name());
     for (auto &item : ranklist) {
       ASSERT_FALSE(boost::math::isnan(item.score()));
     }
@@ -148,7 +146,7 @@ TEST_F(TestIR, TestIrInstance_map) {
   map /= queries.size();
 
   LOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.77);
+  EXPECT_GT(map, 0.82);
 }
 
 TEST_F(TestIR, TestIrInstance_map_parallel) {
@@ -180,7 +178,6 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
     auto &ranklist = ranklists.at(i);
 
     // Verify ranklist
-    ASSERT_EQ(queries.at(i), ranklist.at(0).name());
     for (auto &item : ranklist) {
       ASSERT_FALSE(boost::math::isnan(item.score()));
     }
@@ -200,5 +197,5 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
   map /= queries.size();
 
   LOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.77);
+  EXPECT_GT(map, 0.82);
 }

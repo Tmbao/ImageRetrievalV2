@@ -20,7 +20,8 @@ std::vector<std::string> ir::DatabaseParams::getDocuments() {
          {})) {
     std::string entryPath = entry.path().filename().string();
     // Check if the file is an image file
-    if (boost::ends_with(entryPath, ".jpg")) {
+    if (boost::ends_with(entryPath, ".jpg") ||
+        boost::ends_with(entryPath, ".png")) {
       docs.push_back(entry.path().filename().string());
     }
 
