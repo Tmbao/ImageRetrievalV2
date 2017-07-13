@@ -53,10 +53,15 @@ TEST(TestHesaff, TestHesaff_ouput) {
   ASSERT_EQ(kps.shape()[1], expKps.shape()[1]);
   ASSERT_EQ(descs.shape()[0], expDescs.shape()[0]);
   ASSERT_EQ(descs.shape()[1], expDescs.shape()[1]);
-
-  //TODO: Assert_eq elements of these arrays
-//  float* kpData = kps.host<float>();
-//  float* expKpData = expKps.host<float>();
-//  float* descData = descs.host<float>();
-//  float* expDescData = expDescs.host<float>();
+  
+  for (size_t i = 0; i < descs.shape()[0]; ++i) {
+    for (size_t j = 0; j < descs.shape()[1]; ++j) {
+      ASSERT_NEAR(descs[i][j], expDescs[i][j], 1e-2);
+    }
+  }
+  for (size_t i = 0; i < kps.shape()[0]; ++i) {
+    for (size_t j = 0; j < kps.shape()[1]; ++j) {
+      ASSERT_NEAR(kps[i][j], expKps[i][j], 1e-2);
+    }
+  }
 }

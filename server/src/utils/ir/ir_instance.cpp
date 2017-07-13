@@ -349,13 +349,13 @@ void ir::IrInstance::quantize(
   termIndices = std::vector<size_t>(ptrIndices, ptrIndices + indices.rows * indices.cols);
   termWeights = std::vector<double>(ptrWeights, ptrWeights + dists.rows * dists.cols);
 
-  for (size_t i = 0; i < dists.rows; ++i) {
+  for (size_t i = 0; i < termWeights.size(); i += dists.cols) {
     double sum = 0;
-    for (size_t j = i; j < termWeights.size(); j += dists.rows) {
+    for (size_t j = i; j < i + dists.cols; ++j) {
       termWeights.at(j) = exp(-termWeights.at(j) / (2 * quantParams_.deltaSqr));
       sum += termWeights.at(j);
     }
-    for (size_t j = i; j < termWeights.size(); j += dists.rows) {
+    for (size_t j = i; j < i + dists.cols; ++j) {
       termWeights.at(j) /= sum;
     }
   }

@@ -120,12 +120,18 @@ struct AffineHessianDetector : public HessianDetector, AffineShape, HessianKeypo
     drs.resize(boost::extents[keys.size()][128]);
     for (size_t i = 0; i < keys.size(); i++) {
       Keypoint &k = keys[i];
-      double sum = 0;
-      for (size_t j = 0; j < 128; j++) {
-        sum += double(k.desc[j]);
-      }
-      for (size_t j = 0; j < 128; j++) {
-        drs[i][j] = sqrt(double(k.desc[j]) / sum);
+      if (rootSift) {
+        double sum = 0;
+        for (size_t j = 0; j < 128; j++) {
+          sum += double(k.desc[j]);
+        }
+        for (size_t j = 0; j < 128; j++) {
+          drs[i][j] = sqrt(double(k.desc[j]) / sum);
+        }
+      } else {
+        for (size_t j = 0; j < 128; j++) {
+          drs[i][j] = double(k.desc[j]);
+        }
       }
     }
   }
@@ -149,7 +155,6 @@ void extract(
   }
 
   HessianAffineParams par;
-  double t1 = 0;
   // copy params
   PyramidParams p;
   p.threshold = par.threshold;
@@ -163,7 +168,6 @@ void extract(
   sp.patchSize = par.patch_size;
 
   AffineHessianDetector detector(image, p, ap, sp);
-  t1 = getTime();
   detector.detectPyramidKeypoints(image);
 
   detector.exportKeypoints(keypoints);

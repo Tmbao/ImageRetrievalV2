@@ -60,7 +60,7 @@ class TaskManager {
   static bool addTask(const std::string &id, const cv::Mat &mat);
 
   /**
-   * Execute the retrieval process on the queue. This function is non-blocking.
+   * Executes the retrieval process on the queue. This function is non-blocking.
    */
   static void execute();
 

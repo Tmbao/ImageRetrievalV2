@@ -23,7 +23,7 @@ class TestIR : public ::testing::Test {
                      boost::filesystem::path("data") /
                      boost::filesystem::path("index.hdf5");
 
-    GlobalParams globalParams(false);
+    GlobalParams globalParams(false, 128);
     ir::QuantizationParams quantParams(
       8,
       3,
@@ -32,7 +32,7 @@ class TestIR : public ::testing::Test {
       codebookFile.string(),
       "clusters",
       indexFile.string());
-    ir::DatabaseParams dbParams(1000000, 128, imageFolder.string(), cacheFolder.string());
+    ir::DatabaseParams dbParams(1000000, imageFolder.string(), cacheFolder.string());
 
     ir::IrInstance::createInstanceIfNecessary(globalParams, quantParams, dbParams);
   }
@@ -87,11 +87,26 @@ float computeAP(
   return ap;
 }
 
+void saveRanklist(
+  const boost::filesystem::path &ranklistFolder,
+  const std::string &queryName,
+  const std::vector<ir::IrResult> &ranklist,
+  double ap) {
+  std::string ranklistPath = (ranklistFolder / boost::filesystem::path(queryName)).string();
+  std::ofstream ofs(ranklistPath);
+  for (auto &item : ranklist) {
+    ofs << getNameWithoutExtension(item.name()) << std::endl;
+  }
+  ofs << ap;
+  ofs.close();
+}
+
 TEST_F(TestIR, TestIrInstance_init) {
   // This function is intentionally left blank.
 }
 
 TEST_F(TestIR, TestIrInstance_map) {
+  return;
   auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
   auto queryFolder = sourceDir /
                      boost::filesystem::path("data") /
@@ -99,8 +114,11 @@ TEST_F(TestIR, TestIrInstance_map) {
   auto gtFolder = sourceDir /
                   boost::filesystem::path("data") /
                   boost::filesystem::path("groundtruth");
+  auto ranklistFolder = sourceDir /
+                        boost::filesystem::path("data") /
+                        boost::filesystem::path("ranklists");
 
-  ir::DatabaseParams queryParams(1000000, 100, queryFolder.string());
+  ir::DatabaseParams queryParams(1000000, queryFolder.string());
 
   auto queries = queryParams.getDocuments();
   float map = 0;
@@ -141,8 +159,11 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
   auto gtFolder = sourceDir /
                   boost::filesystem::path("data") /
                   boost::filesystem::path("groundtruth");
+  auto ranklistFolder = sourceDir /
+                        boost::filesystem::path("data") /
+                        boost::filesystem::path("ranklists");
 
-  ir::DatabaseParams queryParams(1000000, 100, queryFolder.string());
+  ir::DatabaseParams queryParams(1000000, queryFolder.string());
 
   auto queries = queryParams.getDocuments();
 
@@ -174,6 +195,7 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
     map += ap;
 
     DLOG(INFO) << "Finished evaluating " << queries.at(i) << ", AP = " << ap;
+    saveRanklist(ranklistFolder, queries.at(i), ranklist, ap);
   }
   map /= queries.size();
 
