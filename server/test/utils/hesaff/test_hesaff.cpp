@@ -53,7 +53,7 @@ TEST(TestHesaff, TestHesaff_ouput) {
   ASSERT_EQ(kps.shape()[1], expKps.shape()[1]);
   ASSERT_EQ(descs.shape()[0], expDescs.shape()[0]);
   ASSERT_EQ(descs.shape()[1], expDescs.shape()[1]);
-  
+
   for (size_t i = 0; i < descs.shape()[0]; ++i) {
     for (size_t j = 0; j < descs.shape()[1]; ++j) {
       ASSERT_NEAR(descs[i][j], expDescs[i][j], 1e-2);

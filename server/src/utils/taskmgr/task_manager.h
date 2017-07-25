@@ -21,9 +21,10 @@ namespace taskmgr {
 /**
  * A thread-safe IR task management class.
  */
+template<typename IrType = ir::IrInstance>
 class TaskManager {
  private:
-  static std::shared_ptr<TaskManager> instance_;
+  static std::shared_ptr< TaskManager<IrType> > instance_;
   static GlobalParams globalParams_;
 
   boost::mutex initMutex_;

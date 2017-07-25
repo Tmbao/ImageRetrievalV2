@@ -8,19 +8,25 @@
 
 #include "task_manager.h"
 
-std::shared_ptr<taskmgr::TaskManager> taskmgr::TaskManager::instance_ = nullptr;
-GlobalParams taskmgr::TaskManager::globalParams_;
+template<typename IrType>
+std::shared_ptr< taskmgr::TaskManager<IrType> > taskmgr::TaskManager<IrType>::instance_ = nullptr;
 
-void taskmgr::TaskManager::createInstanceIfNecessary() {
+template<typename IrType>
+GlobalParams taskmgr::TaskManager<IrType>::globalParams_;
+
+template<typename IrType>
+void taskmgr::TaskManager<IrType>::createInstanceIfNecessary() {
   boost::mutex::scoped_lock scopedLock(instance_->initMutex_);
   if (instance_ == nullptr) {
-    instance_ = std::shared_ptr<taskmgr::TaskManager>(new taskmgr::TaskManager());
+    instance_ = std::shared_ptr< taskmgr::TaskManager<IrType> >(
+                  new taskmgr::TaskManager<IrType>());
   }
 }
 
-bool taskmgr::TaskManager::addTask(const std::string &id, const cv::Mat &mat) {
+template<typename IrType>
+bool taskmgr::TaskManager<IrType>::addTask(const std::string &id, const cv::Mat &mat) {
   createInstanceIfNecessary();
-  
+
   boost::mutex::scoped_lock scopedLock(instance_->addTaskMutex_);
 
   if (instance_->statuses_.count(id)) {
@@ -37,13 +43,15 @@ bool taskmgr::TaskManager::addTask(const std::string &id, const cv::Mat &mat) {
   return true;
 }
 
-void taskmgr::TaskManager::execute() {
+template<typename IrType>
+void taskmgr::TaskManager<IrType>::execute() {
   createInstanceIfNecessary();
   boost::mutex::scoped_lock scopedLock(instance_->addTaskMutex_);
   executeAsync();
 }
 
-void taskmgr::TaskManager::executeAsync() {
+template<typename IrType>
+void taskmgr::TaskManager<IrType>::executeAsync() {
   std::vector<std::string> localIdentities(instance_->identities_);
   std::vector<cv::Mat> localMatrices(instance_->matrices_);
 
@@ -58,11 +66,12 @@ void taskmgr::TaskManager::executeAsync() {
   instance_->matrices_.clear();
 }
 
-void taskmgr::TaskManager::executeSync(
+template<typename IrType>
+void taskmgr::TaskManager<IrType>::executeSync(
   const std::vector<std::string> &identities,
   const std::vector<cv::Mat> &matrices) {
   instance_->executionMutex_.lock();
-  std::vector< std::vector<ir::IrResult> > ranklists = ir::IrInstance::retrieve(matrices);
+  std::vector< std::vector<ir::IrResult> > ranklists = ir::IrInstance::retrieve<IrType>(matrices);
   instance_->executionMutex_.unlock();
 
   instance_->updateResultMutex_.lock();
@@ -73,11 +82,12 @@ void taskmgr::TaskManager::executeSync(
   instance_->updateResultMutex_.unlock();
 }
 
-taskmgr::TaskStatus taskmgr::TaskManager::fetchResult(
+template<typename IrType>
+taskmgr::TaskStatus taskmgr::TaskManager<IrType>::fetchResult(
   const std::string &id,
   std::vector<ir::IrResult> &result) {
   createInstanceIfNecessary();
-  
+
   boost::mutex::scoped_lock scopedLockAddTask(instance_->addTaskMutex_);
   boost::mutex::scoped_lock scopedLockResult(instance_->updateResultMutex_);
 

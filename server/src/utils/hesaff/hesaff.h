@@ -138,7 +138,7 @@ struct AffineHessianDetector : public HessianDetector, AffineShape, HessianKeypo
 
 };
 
-void extract(
+inline void extract(
   Mat src,
   boost::multi_array<double, 2>& keypoints,
   boost::multi_array<double, 2>& descriptors,

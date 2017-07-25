@@ -5,8 +5,10 @@
 #include <fstream>
 #include <glog/logging.h>
 #include <utils/ir/ir_instance.h>
+#include <utils/ir/extensions/ir_aqe_extension.h>
 
-class TestIR : public ::testing::Test {
+
+class TestIRInstanceAQE : public ::testing::Test {
  protected:
   virtual void SetUp() {
     auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
@@ -23,7 +25,7 @@ class TestIR : public ::testing::Test {
                      boost::filesystem::path("data") /
                      boost::filesystem::path("index.hdf5");
 
-    GlobalParams globalParams(false, 128);
+    GlobalParams globalParams(false, 64);
     ir::QuantizationParams quantParams(
       8,
       3,
@@ -34,15 +36,18 @@ class TestIR : public ::testing::Test {
       indexFile.string());
     ir::DatabaseParams dbParams(1000000, imageFolder.string(), cacheFolder.string());
 
-    ir::IrInstance::createInstanceIfNecessary(globalParams, quantParams, dbParams);
+    ir::IrInstance::createInstanceIfNecessary<ir::IrAverageQueryExpansion>(
+      globalParams,
+      quantParams,
+      dbParams);
   }
 };
 
-std::string getNameWithoutExtension(std::string filename) {
+inline std::string getNameWithoutExtension(const std::string &filename) {
   return filename.substr(0, filename.rfind("."));
 }
 
-std::set<std::string> getGroundtruth(
+inline std::set<std::string> getGroundtruth(
   const boost::filesystem::path &gtFolder,
   const std::string &queryName,
   const std::string &tag) {
@@ -58,7 +63,7 @@ std::set<std::string> getGroundtruth(
   return lst;
 }
 
-float computeAP(
+inline float computeAP(
   const std::set<std::string> &pos,
   const std::set<std::string> &amb,
   const std::vector<ir::IrResult> &ranklist) {
@@ -73,6 +78,8 @@ float computeAP(
     }
     if (pos.count(getNameWithoutExtension(ranklist.at(i).name()))) {
       ++intersectSize;
+    } else {
+      DLOG(INFO) << getNameWithoutExtension(ranklist.at(i).name());
     }
 
     float recall = (float) intersectSize / pos.size();
@@ -87,7 +94,7 @@ float computeAP(
   return ap;
 }
 
-void saveRanklist(
+inline void saveRanklist(
   const boost::filesystem::path &ranklistFolder,
   const std::string &queryName,
   const std::vector<ir::IrResult> &ranklist,
@@ -101,11 +108,11 @@ void saveRanklist(
   ofs.close();
 }
 
-TEST_F(TestIR, TestIrInstance_init) {
+TEST_F(TestIRInstanceAQE, TestIrInstanceAQE_init) {
   // This function is intentionally left blank.
 }
 
-TEST_F(TestIR, TestIrInstance_map) {
+TEST_F(TestIRInstanceAQE, TestIrInstanceAQE_map) {
   auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
   auto queryFolder = sourceDir /
                      boost::filesystem::path("data") /
@@ -125,7 +132,7 @@ TEST_F(TestIR, TestIrInstance_map) {
     DLOG(INFO) << "Started processing " << query;
     auto fullPath = queryParams.getFullPath(query);
     auto queryMat = cv::imread(fullPath);
-    auto ranklist = ir::IrInstance::retrieve(queryMat);
+    auto ranklist = ir::IrInstance::retrieve<ir::IrAverageQueryExpansion>(queryMat);
 
     // Verify ranklist
     for (auto &item : ranklist) {
@@ -149,7 +156,7 @@ TEST_F(TestIR, TestIrInstance_map) {
   EXPECT_GT(map, 0.82);
 }
 
-TEST_F(TestIR, TestIrInstance_map_parallel) {
+TEST_F(TestIRInstanceAQE, TestIrInstanceAQE_map_parallel) {
   auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
   auto queryFolder = sourceDir /
                      boost::filesystem::path("data") /
@@ -171,7 +178,7 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
     queryMats.push_back(cv::imread(fullPath));
   }
 
-  auto ranklists = ir::IrInstance::retrieve(queryMats);
+  auto ranklists = ir::IrInstance::retrieve<ir::IrAverageQueryExpansion>(queryMats);
 
   float map = 0;
   for (size_t i = 0; i < ranklists.size(); ++i) {
