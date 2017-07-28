@@ -29,3 +29,8 @@ std::string server::fetchResult(const std::string& id) {
     return "";
   }
 }
+
+std::string server::flush() {
+  taskmgr::TaskManager<ir::IrInstance>::execute();
+  return "";
+}

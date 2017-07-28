@@ -31,6 +31,16 @@ class server: public ngrest::Service {
   // *method: POST
   //
   std::string fetchResult(const std::string& id);
+  
+  //! Executes the queue of tasks
+  /*! Executes the queue of tasks.
+   * This method returns a json string if the result is available.
+   * Otherwise returns an empty string.
+   */
+  // *location: /flush
+  // *method: POST
+  //
+  std::string flush();
 };
 
 
