@@ -97,10 +97,17 @@ inline void saveRanklist(
   const boost::filesystem::path &ranklistFolder,
   const std::string &queryName,
   const std::vector<ir::IrResult> &ranklist,
+  const std::set<std::string> &pos,
+  const std::set<std::string> &amb,
   double ap) {
   std::string ranklistPath = (ranklistFolder / boost::filesystem::path(queryName)).string();
   std::ofstream ofs(ranklistPath);
   for (auto &item : ranklist) {
+    if (pos.count(getNameWithoutExtension(item.name()))) {
+      ofs << "POS_";
+    } else {
+      ofs << "NEG_";
+    }
     ofs << getNameWithoutExtension(item.name()) << std::endl;
   }
   ofs << ap;
@@ -198,7 +205,7 @@ TEST_F(TestIRInstance, TestIrInstance_map_parallel) {
     map += ap;
 
     DLOG(INFO) << "Finished evaluating " << queries.at(i) << ", AP = " << ap;
-    saveRanklist(ranklistFolder, queries.at(i), ranklist, ap);
+//    saveRanklist(ranklistFolder, queries.at(i), ranklist, goodSet, junkSet, ap);
   }
   map /= queries.size();
 

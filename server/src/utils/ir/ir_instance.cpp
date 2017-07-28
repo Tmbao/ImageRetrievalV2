@@ -364,6 +364,7 @@ void ir::IrInstance::computeTF(
 }
 
 void ir::IrInstance::computeScore(const af::array &bow, std::vector<double> &scores) {
+  scores.clear();
   for (size_t batchId = 0; batchId < database_.size(); ++batchId) {
     af::array afScores = af::matmul(database_.at(batchId), bow);
     double* ptrScores = afScores.host<double>();
@@ -424,7 +425,9 @@ std::vector<ir::IrResult> ir::IrInstance::retrieveImpl(
 void ir::IrInstance::computeScore(
   const af::array &bows,
   std::vector< std::vector<double> > &scores) {
-
+  for (size_t i = 0; i < scores.size(); ++i) {
+    scores.at(i).clear();
+  }
   for (size_t batchId = 0; batchId < database_.size(); ++batchId) {
     af::array afScores = af::matmul(database_.at(batchId), bows);
     double* ptrScores = afScores.host<double>();

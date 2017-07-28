@@ -3,9 +3,29 @@
 
 #include "server.h"
 
+#include <json.hpp>
+#include <opencv2/opencv.hpp>
+
 #include "utils/taskmgr/task_manager.h"
 
 
 std::string server::processImage(const std::string& path) {
-  return "";
+  cv::Mat img = cv::imread(path);
+  if (taskmgr::TaskManager<ir::IrInstance>::addTask(path, img)) {
+    return path;
+  } else {
+    return "";
+  }
+}
+
+std::string server::fetchResult(const std::string& id) {
+  std::vector<ir::IrResult> result;
+  taskmgr::TaskStatus status = taskmgr::TaskManager<ir::IrInstance>::fetchResult(id, result);
+  
+  if (status == taskmgr::READY) {
+    nlohmann::json j(result);
+    return j.dump();
+  } else {
+    return "";
+  }
 }

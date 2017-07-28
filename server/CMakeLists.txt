@@ -10,6 +10,7 @@ find_package(GTest REQUIRED)
 find_package(Hdf5 REQUIRED)
 find_package(OpenCL REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(nlohmann_json REQUIRED)
 find_package(Threads)
 
 set(SERVER_HEADERS server.h)
@@ -55,6 +56,7 @@ include_directories(${PROJECT_SOURCE_DIR}
   ${Boost_INCLUDE_DIRS}
   ${Flann_INCLUDE_DIRS}
   ${GLog_INCLUDE_DIRS}
+  ${JSON_INCLUDE_DIR}
 )
 
 include_directories(${PROJECT_TEST_DIR}
@@ -64,6 +66,7 @@ include_directories(${PROJECT_TEST_DIR}
   ${Flann_INCLUDE_DIRS}
   ${GLog_INCLUDE_DIRS}
   ${GTest_INCLUDE_DIRS}
+  ${JSON_INCLUDE_DIR}
 )
 
 add_library(server SHARED ${SERVER_SOURCES})

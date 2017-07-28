@@ -20,7 +20,7 @@ struct QueryExpansionParams {
   size_t nChosen;
   size_t evalPeriod;
 
-  QueryExpansionParams(size_t nChosen = 10, size_t evalPeriod = 8):
+  QueryExpansionParams(size_t nChosen = 5, size_t evalPeriod = 8):
     nChosen(nChosen),
     evalPeriod(evalPeriod) {}
 };

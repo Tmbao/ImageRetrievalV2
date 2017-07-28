@@ -21,6 +21,16 @@ class server: public ngrest::Service {
   // *method: POST
   //
   std::string processImage(const std::string& path);
+  
+  //! Receives an id and returns objects inside the corresponding image
+  /*! Receives an id and returns objects inside the corresponding image.
+   * This method returns a json string if the result is available.
+   * Otherwise returns an empty string.
+   */
+  // *location: /fetchResult
+  // *method: POST
+  //
+  std::string fetchResult(const std::string& id);
 };
 
 

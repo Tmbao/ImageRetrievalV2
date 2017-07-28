@@ -13,23 +13,17 @@
 
 #include "../ir_instance.h"
 
+
 namespace ir {
 
 class IrAverageQueryExpansion : public IrInstance {
  protected:
   QueryExpansionParams qeParams_;
-  std::vector<af::array> databaseTranspose_;
-
-  void buildDatabase() override;
 
   af::array enrichQuery(const std::vector<size_t> &indices);
 
   std::vector<IrResult> retrieveImpl(
     const cv::Mat& image,
-    int topK) override;
-
-  std::vector< std::vector<IrResult> > retrieveImpl(
-    const std::vector<cv::Mat> &images,
     int topK) override;
 };
 

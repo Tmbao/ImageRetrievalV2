@@ -25,7 +25,7 @@ class TestIRInstanceAQE : public ::testing::Test {
                      boost::filesystem::path("data") /
                      boost::filesystem::path("index.hdf5");
 
-    GlobalParams globalParams(false, 64);
+    GlobalParams globalParams(false, 128);
     ir::QuantizationParams quantParams(
       8,
       3,
@@ -149,57 +149,6 @@ TEST_F(TestIRInstanceAQE, TestIrInstanceAQE_map) {
     map += ap;
 
     DLOG(INFO) << "Finished processing " << query << ", AP = " << ap;
-  }
-  map /= queries.size();
-
-  LOG(INFO) << "MAP = " << map;
-  EXPECT_GT(map, 0.82);
-}
-
-TEST_F(TestIRInstanceAQE, TestIrInstanceAQE_map_parallel) {
-  auto sourceDir = boost::filesystem::path(__FILE__).parent_path();
-  auto queryFolder = sourceDir /
-                     boost::filesystem::path("data") /
-                     boost::filesystem::path("query");
-  auto gtFolder = sourceDir /
-                  boost::filesystem::path("data") /
-                  boost::filesystem::path("groundtruth");
-  auto ranklistFolder = sourceDir /
-                        boost::filesystem::path("data") /
-                        boost::filesystem::path("ranklists");
-
-  ir::DatabaseParams queryParams(1000000, queryFolder.string());
-
-  auto queries = queryParams.getDocuments();
-
-  std::vector<cv::Mat> queryMats;
-  for (auto &query : queries) {
-    auto fullPath = queryParams.getFullPath(query);
-    queryMats.push_back(cv::imread(fullPath));
-  }
-
-  auto ranklists = ir::IrInstance::retrieve<ir::IrAverageQueryExpansion>(queryMats);
-
-  float map = 0;
-  for (size_t i = 0; i < ranklists.size(); ++i) {
-    auto &ranklist = ranklists.at(i);
-
-    // Verify ranklist
-    for (auto &item : ranklist) {
-      ASSERT_FALSE(boost::math::isnan(item.score()));
-    }
-
-    auto goodSet = getGroundtruth(gtFolder, queries.at(i), "good");
-    auto okSet = getGroundtruth(gtFolder, queries.at(i), "ok");
-    auto junkSet = getGroundtruth(gtFolder, queries.at(i), "junk");
-
-    goodSet.insert(okSet.begin(), okSet.end());
-
-    auto ap = computeAP(goodSet, junkSet, ranklist);
-    map += ap;
-
-    DLOG(INFO) << "Finished evaluating " << queries.at(i) << ", AP = " << ap;
-    saveRanklist(ranklistFolder, queries.at(i), ranklist, ap);
   }
   map /= queries.size();
 
