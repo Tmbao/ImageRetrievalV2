@@ -23,7 +23,7 @@ class TestIR : public ::testing::Test {
                      boost::filesystem::path("data") /
                      boost::filesystem::path("index.hdf5");
 
-    GlobalParams globalParams(false, 128);
+    GlobalParams globalParams(false, 128, 4);
     ir::QuantizationParams quantParams(
       8,
       3,
@@ -91,10 +91,16 @@ void saveRanklist(
   const boost::filesystem::path &ranklistFolder,
   const std::string &queryName,
   const std::vector<ir::IrResult> &ranklist,
+  const std::set<std::string> &pos,
   double ap) {
   std::string ranklistPath = (ranklistFolder / boost::filesystem::path(queryName)).string();
-  std::ofstream ofs(ranklistPath);
+  std::ofstream ofs(ranklistPath + ".txt");
   for (auto &item : ranklist) {
+    if (pos.count(getNameWithoutExtension(item.name()))) {
+      ofs << "POS_";
+    } else {
+      ofs << "NEG_";
+    }
     ofs << getNameWithoutExtension(item.name()) << std::endl;
   }
   ofs << ap;
@@ -192,7 +198,7 @@ TEST_F(TestIR, TestIrInstance_map_parallel) {
     map += ap;
 
     DLOG(INFO) << "Finished evaluating " << queries.at(i) << ", AP = " << ap;
-    saveRanklist(ranklistFolder, queries.at(i), ranklist, ap);
+    saveRanklist(ranklistFolder, queries.at(i), ranklist, goodSet, ap);
   }
   map /= queries.size();
 
