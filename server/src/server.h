@@ -12,6 +12,7 @@
 // *location: server
 class server: public ngrest::Service {
  public:
+  server();
   //! Receives an image and detects objects inside the image
   /*! Receives an image and detects objects inside the image.
    * This method returns a token which will be used to get
@@ -21,7 +22,7 @@ class server: public ngrest::Service {
   // *method: POST
   //
   std::string processImage(const std::string& path);
-  
+
   //! Receives an id and returns objects inside the corresponding image
   /*! Receives an id and returns objects inside the corresponding image.
    * This method returns a json string if the result is available.
@@ -31,7 +32,7 @@ class server: public ngrest::Service {
   // *method: POST
   //
   std::string fetchResult(const std::string& id);
-  
+
   //! Executes the queue of tasks
   /*! Executes the queue of tasks.
    * This method returns a json string if the result is available.

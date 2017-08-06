@@ -32,7 +32,7 @@ class IrResult {
     return score_;
   }
 };
-  
+
 inline void to_json(nlohmann::json &j, const IrResult &result) {
   j = nlohmann::json{{"name", result.name()}, {"score", result.score()}};
 }

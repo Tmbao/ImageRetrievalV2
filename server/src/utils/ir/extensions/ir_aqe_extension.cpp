@@ -87,7 +87,7 @@ std::vector<ir::IrResult> ir::IrAverageQueryExpansion::retrieveImpl(
   // Carryout average query expansion
   bow = enrichQuery(docIndices);
   computeScore(bow, scores);
-  
+
   assert(scores.size() == docIndices.size());
 
   std::sort(
