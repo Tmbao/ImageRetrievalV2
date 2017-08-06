@@ -12,20 +12,8 @@ find_package(OpenCL REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Threads)
 
-set(SERVER_HEADERS server.h)
-
 set(PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(PROJECT_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test)
-set(SERVER_CODEGEN_DIR "${PROJECT_BINARY_DIR}/codegen")
-
-PREPEND(SERVER_HEADERS_PATHS ${PROJECT_SOURCE_DIR} ${SERVER_HEADERS})
-
-CODEGEN_FILES(SERVER_CODEGEN_SOURCES ${SERVER_CODEGEN_DIR} ${SERVER_HEADERS})
-
-add_custom_command(OUTPUT ${SERVER_CODEGEN_SOURCES}
-  COMMAND ${NGREST_BIN_PATH}ngrestcg -i "${PROJECT_SOURCE_DIR}" -o ${SERVER_CODEGEN_DIR} -t service ${SERVER_HEADERS}
-  DEPENDS ${SERVER_HEADERS_PATHS}
-)
 
 file(GLOB SERVER_SOURCES 
   ${PROJECT_SOURCE_DIR}/utils/hesaff/*.cpp
@@ -43,9 +31,7 @@ file(GLOB SERVER_TESTS
   ${PROJECT_TEST_DIR}/utils/hesaff/*.cpp
   ${PROJECT_TEST_DIR}/utils/ir/*.cpp
   ${PROJECT_TEST_DIR}/utils/mask/*.cpp
-) 
-
-list(APPEND SERVER_SOURCES ${SERVER_CODEGEN_SOURCES})
+)
 
 include_directories(${PROJECT_SOURCE_DIR} 
   $ENV{NGREST_EXT_INCLUDES}
@@ -55,26 +41,9 @@ include_directories(${PROJECT_SOURCE_DIR}
   ${GLog_INCLUDE_DIRS}
 )
 
-include_directories(${PROJECT_TEST_DIR}
-  ${PROJECT_SOURCE_DIR}
-  ${ArrayFire_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
-  ${Flann_INCLUDE_DIRS}
-  ${GLog_INCLUDE_DIRS}
-  ${GTest_INCLUDE_DIRS}
-)
+add_executable(server ${SERVER_SOURCES})
 
-add_library(server SHARED ${SERVER_SOURCES})
-
-add_executable(server_test ${SERVER_TESTS})
-
-set_target_properties(server PROPERTIES PREFIX "")
-set_target_properties(server PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SERVICES_DIR}"
-)
-
-target_link_libraries(server ngrestutils ngrestcommon ngrestjson ngrestengine 
-  $ENV{NGREST_EXT_LIBS}
+target_link_libraries(server
   ${ArrayFire_LIBRARIES}
   ${Boost_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
@@ -84,18 +53,3 @@ target_link_libraries(server ngrestutils ngrestcommon ngrestjson ngrestengine
   ${OpenCL_LIBRARY}
   ${OpenCV_LIBS}
 )
-
-target_link_libraries(server_test server
-  ${ArrayFire_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
-  ${Flann_LIBRARIES}
-  ${GLOG_LIBRARIES}
-  ${HDF5_LIBRARIES}
-  ${OpenCL_LIBRARY}
-  ${OpenCV_LIBS}
-  GTest::GTest
-  GTest::Main
-)
-
-add_test(server_test server_test)
