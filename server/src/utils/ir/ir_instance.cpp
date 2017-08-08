@@ -37,6 +37,45 @@ ir::IrInstance::IrInstance() {
   af::setDevice(0);
 }
 
+void ir::IrInstance::createInstanceIfNecessary() {
+  boost::mutex::scoped_lock scopedLock(initMutex_);
+  if (instance_ == nullptr) {
+    instance_ = std::shared_ptr<ir::IrInstance>(new ir::IrInstance);
+
+    instance_->buildIndexIfNecessary();
+    instance_->buildDatabase();
+  }
+}
+
+void ir::IrInstance::createInstanceIfNecessary(
+  GlobalParams globalParams,
+  QuantizationParams quantParams,
+  DatabaseParams dbParams,
+  bool reuse) {
+  boost::mutex::scoped_lock scopedLock(initMutex_);
+  if (instance_ == nullptr || !reuse) {
+    globalParams_ = globalParams;
+    quantParams_ = quantParams;
+    dbParams_ = dbParams;
+    instance_ = std::shared_ptr<ir::IrInstance>(new ir::IrInstance);
+
+    instance_->buildIndexIfNecessary();
+    instance_->buildDatabase();
+  }
+}
+
+std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int topK) {
+  createInstanceIfNecessary();
+  return instance_->retrieveImpl(image, topK);
+}
+
+std::vector< std::vector<ir::IrResult> > ir::IrInstance::retrieve(
+  const std::vector<cv::Mat> &images,
+  int topK) {
+  createInstanceIfNecessary();
+  return instance_->retrieveImpl(images, topK);
+}
+
 template <typename T>
 void save(const std::vector<T> &data, const std::string &filename) {
   std::ofstream ofs(filename);

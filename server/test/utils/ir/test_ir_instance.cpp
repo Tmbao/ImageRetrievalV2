@@ -35,7 +35,7 @@ class TestIRInstance : public ::testing::Test {
       indexFile.string());
     ir::DatabaseParams dbParams(1000000, imageFolder.string(), cacheFolder.string());
 
-    ir::IrInstance::createInstanceIfNecessary<ir::IrInstance>(
+    ir::IrInstance::createInstanceIfNecessary(
       globalParams,
       quantParams,
       dbParams);
@@ -138,7 +138,7 @@ TEST_F(TestIRInstance, TestIrInstance_map) {
     DLOG(INFO) << "Started processing " << query;
     auto fullPath = queryParams.getFullPath(query);
     auto queryMat = cv::imread(fullPath);
-    auto ranklist = ir::IrInstance::retrieve<ir::IrInstance>(queryMat);
+    auto ranklist = ir::IrInstance::retrieve(queryMat);
 
     // Verify ranklist
     for (auto &item : ranklist) {
@@ -184,7 +184,7 @@ TEST_F(TestIRInstance, TestIrInstance_map_parallel) {
     queryMats.push_back(cv::imread(fullPath));
   }
 
-  auto ranklists = ir::IrInstance::retrieve<ir::IrInstance>(queryMats);
+  auto ranklists = ir::IrInstance::retrieve(queryMats);
 
   float map = 0;
   for (size_t i = 0; i < ranklists.size(); ++i) {

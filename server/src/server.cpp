@@ -34,7 +34,7 @@ server::server() {
 
 std::string server::processImage(const std::string& path) {
   cv::Mat img = cv::imread(path);
-  if (taskmgr::TaskManager<ir::IrInstance>::addTask(path, img)) {
+  if (taskmgr::TaskManager::addTask(path, img)) {
     return path;
   } else {
     return "";
@@ -43,7 +43,7 @@ std::string server::processImage(const std::string& path) {
 
 std::string server::fetchResult(const std::string& id) {
   std::vector<ir::IrResult> result;
-  taskmgr::TaskStatus status = taskmgr::TaskManager<ir::IrInstance>::fetchResult(id, result);
+  taskmgr::TaskStatus status = taskmgr::TaskManager::fetchResult(id, result);
 
   if (status == taskmgr::READY) {
     nlohmann::json j(result);
@@ -54,6 +54,6 @@ std::string server::fetchResult(const std::string& id) {
 }
 
 std::string server::flush() {
-  taskmgr::TaskManager<ir::IrInstance>::execute();
+  taskmgr::TaskManager::execute();
   return "";
 }

@@ -56,8 +56,6 @@ class IrInstance {
   af::array sqrInvDocFreq_;
 
   // Construction methods
-
-  template<typename IrType = IrInstance>
   static void createInstanceIfNecessary();
 
   void buildIndexIfNecessary();
@@ -134,7 +132,6 @@ class IrInstance {
   /**
    * Creates an instance.
    */
-  template<typename IrType = IrInstance>
   static void createInstanceIfNecessary(
     GlobalParams globalParams,
     QuantizationParams quantParams,
@@ -145,62 +142,17 @@ class IrInstance {
    * Retrieves a list of simiar images in the database sorted according to
    * their score.
    */
-  template<typename IrType = IrInstance>
   static std::vector<IrResult> retrieve(const cv::Mat& image, int topK = -1);
 
   /**
    * Retrieves lists of similar images in the database sorted according to
    * their score.
    */
-  template<typename IrType = IrInstance>
   static std::vector< std::vector<IrResult> > retrieve(
     const std::vector<cv::Mat> &images,
     int topK = -1);
 };
 
-}
-
-template<typename IrType>
-void ir::IrInstance::createInstanceIfNecessary() {
-  boost::mutex::scoped_lock scopedLock(initMutex_);
-  if (instance_ == nullptr) {
-    instance_ = std::shared_ptr<IrType>(new IrType);
-
-    instance_->buildIndexIfNecessary();
-    instance_->buildDatabase();
-  }
-}
-
-template<typename IrType>
-void ir::IrInstance::createInstanceIfNecessary(
-  GlobalParams globalParams,
-  QuantizationParams quantParams,
-  DatabaseParams dbParams,
-  bool reuse) {
-  boost::mutex::scoped_lock scopedLock(initMutex_);
-  if (instance_ == nullptr || !reuse) {
-    globalParams_ = globalParams;
-    quantParams_ = quantParams;
-    dbParams_ = dbParams;
-    instance_ = std::shared_ptr<IrType>(new IrType);
-
-    instance_->buildIndexIfNecessary();
-    instance_->buildDatabase();
-  }
-}
-
-template<typename IrType>
-std::vector<ir::IrResult> ir::IrInstance::retrieve(const cv::Mat &image, int topK) {
-  createInstanceIfNecessary<IrType>();
-  return instance_->retrieveImpl(image, topK);
-}
-
-template<typename IrType>
-std::vector< std::vector<ir::IrResult> > ir::IrInstance::retrieve(
-  const std::vector<cv::Mat> &images,
-  int topK) {
-  createInstanceIfNecessary<IrType>();
-  return instance_->retrieveImpl(images, topK);
 }
 
 #endif /* ir_instance_h */

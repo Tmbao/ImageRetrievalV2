@@ -31,8 +31,6 @@ add_custom_command(OUTPUT ${SERVER_CODEGEN_SOURCES}
 file(GLOB SERVER_SOURCES 
   ${PROJECT_SOURCE_DIR}/utils/hesaff/*.cpp
   ${PROJECT_SOURCE_DIR}/utils/hesaff/*.h
-  ${PROJECT_SOURCE_DIR}/utils/ir/extensions/*.cpp
-  ${PROJECT_SOURCE_DIR}/utils/ir/extensions/*.h
   ${PROJECT_SOURCE_DIR}/utils/ir/*.cpp
   ${PROJECT_SOURCE_DIR}/utils/ir/*.h
   ${PROJECT_SOURCE_DIR}/utils/taskmgr/*.cpp
