@@ -32,7 +32,15 @@ server::server() {
     ));
 }
 
-std::string server::processImage(const std::string& path) {
+std::string server::processImage(const std::string &path) {
+  cv::Mat image = cv::imread(path);
+  std::vector<ir::IrResult> result = ir::IrInstance::retrieve(image);
+  
+  nlohmann::json j(result);
+  return j.dump();
+}
+
+std::string server::enqueueImage(const std::string& path) {
   cv::Mat img = cv::imread(path);
   if (taskmgr::TaskManager::addTask(path, img)) {
     return path;

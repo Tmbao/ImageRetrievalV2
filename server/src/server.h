@@ -13,6 +13,7 @@
 class server: public ngrest::Service {
  public:
   server();
+  
   //! Receives an image and detects objects inside the image
   /*! Receives an image and detects objects inside the image.
    * This method returns a token which will be used to get
@@ -22,6 +23,16 @@ class server: public ngrest::Service {
   // *method: POST
   //
   std::string processImage(const std::string& path);
+  
+  //! Receives an image and detects objects inside the image
+  /*! Receives an image and detects objects inside the image.
+   * This method returns a token which will be used to get
+   * the result once it is available.
+   */
+  // *location: /enqueueImage
+  // *method: POST
+  //
+  std::string enqueueImage(const std::string& path);
 
   //! Receives an id and returns objects inside the corresponding image
   /*! Receives an id and returns objects inside the corresponding image.
